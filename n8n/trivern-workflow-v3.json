@@ -1,0 +1,476 @@
+{
+    "name": "Trivern Lead Engine v4",
+    "nodes": [
+        {
+            "parameters": {
+                "updates": [
+                    "messages"
+                ],
+                "options": {
+                    "messageStatusUpdates": [
+                        "all"
+                    ]
+                }
+            },
+            "type": "n8n-nodes-base.whatsAppTrigger",
+            "typeVersion": 1,
+            "position": [
+                0,
+                0
+            ],
+            "id": "554f1d49-d6be-4aad-b910-3b0379c52601",
+            "name": "WhatsApp Trigger",
+            "webhookId": "2a754644-569e-41da-b0aa-fe5ae9c868dc",
+            "credentials": {
+                "whatsAppTriggerApi": {
+                    "id": "9pUZ4EXKM67XxO8X",
+                    "name": "WhatsApp OAuth account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "options": {
+                        "leftValue": "",
+                        "typeValidation": "strict"
+                    },
+                    "combinator": "and",
+                    "conditions": [
+                        {
+                            "id": "filter-text-message",
+                            "leftValue": "={{ $json.messages[0].type }}",
+                            "rightValue": "text",
+                            "operator": {
+                                "type": "string",
+                                "operation": "equals"
+                            }
+                        }
+                    ]
+                }
+            },
+            "type": "n8n-nodes-base.filter",
+            "typeVersion": 2.2,
+            "position": [
+                220,
+                0
+            ],
+            "id": "filter-text-only",
+            "name": "Filter Text Messages"
+        },
+        {
+            "parameters": {
+                "promptType": "define",
+                "text": "={{ $json.messages[0].text.body }}",
+                "options": {
+                    "systemMessage": "You are Zara, Trivern Solutions' AI Growth Consultant on WhatsApp. You represent Arun Jaggani (Founder & CEO) and the Trivern team.\n\n# STEP 0 — ROLE CHECK (MANDATORY)\nCall check_role FIRST on every message. It returns ADMIN, EMPLOYEE, or CLIENT.\n- ADMIN/EMPLOYEE → Owner Mode\n- CLIENT → Sales Mode\n\n# OWNER MODE\nBe concise, direct, use their name. Listen for: cancel, emergency, not available, reschedule, can't make it, busy.\n\nCommands:\n• Cancel today → emergency_cancel(scope=today)\n• Cancel next → emergency_cancel(scope=next)\n• Cancel all → emergency_cancel(scope=all)\n• \"I have emergency\" → Ask scope, then cancel\n\nAfter cancel: send ownerMessage, tell them clients are notified.\n\n# SALES MODE — IDENTITY\nWarm, professional AI growth consultant. NOT a chatbot. Goal: understand pain → build trust → qualify → book discovery call.\n\n# MESSAGE RULES\n- Max 100 words per message\n- Max 1 question per message\n- 3–6 short lines, end with question or next step\n- Break long ideas into 2 messages\n\n# ABOUT TRIVERN\nAI Revenue, Operations & Growth Infrastructure Company. Installs intelligent systems for service businesses.\n4 Layers: Digital Foundation → Brand & Identity → AI Revenue Engine → Demand & Growth\nClients: coaches, consultants, clinics, real estate, service businesses.\n\n# 5-STAGE FLOW\n1. ACKNOWLEDGE — Warm greeting, use name, ONE question\n2. DISCOVER — One question at a time, acknowledge before next\n3. ALIGN — Connect pain to Trivern layer/solution\n4. TRUST — One industry insight after pain confirmed\n5. BOOK — get_available_slots → offer 2 slots\n\n# TOOLS\n0. check_role — FIRST on every message\n1. save_lead — After collecting: name, phone, company, service, context, urgency, businessType, decisionRole, industry\n2. get_available_slots — When booking ready\n3. book_meeting — After client confirms slot (phone, slotStart ISO)\n4. save_conversation — Every 5 messages or at end\n5. emergency_cancel — Owner Mode only (ownerPhone, scope, reason)\n\n# BOOKING TRIGGERS (→ stop qualifying, get slots)\n- Clear specific pain expressed\n- Asks about pricing/process/timeline\n- 3+ discovery exchanges done\n- High-intent language (\"I need this\", \"how soon\", \"what next\")\n\n# ENERGY SCALING\nHOT → Confident: \"Let's lock in a slot.\"\nWARM → Steady: \"A 20-min call gives you clarity.\"\nLUKEWARM → Low friction: \"Even 15 min could help.\"\nCOLD → Light: \"No rush, I'm here if anything changes 👋\"\n\n# OBJECTIONS\nPrice → Reframe cost of NOT having system → redirect to call\nThink about it → \"What's the one thing you'd want clarity on?\"\nHave systems → \"What part still feels manual?\"\nNot now → \"When's better? I'll follow up then.\"\nSend info → \"One quick question so I send the right thing.\"\n\n# ESCALATION\nFlag save_lead(urgency=CRITICAL) if: large budget, multi-location, scaling, enterprise, partnership.\n\n# LANGUAGE\nDefault English. Offer Telugu on first message. Mirror Telugu if client uses it.\n\n# RULES\nNEVER: quote prices, promise ROI, ask 2 questions, send 100+ words, position Trivern as small.\nALWAYS: use tools to save data and book.\nIF ASKED IF AI: \"I'm Zara — Trivern's AI Growth Consultant. The team on the call is human.\""
+                }
+            },
+            "type": "@n8n/n8n-nodes-langchain.agent",
+            "typeVersion": 3.1,
+            "position": [
+                440,
+                0
+            ],
+            "id": "bc6d7990-1107-4378-92d7-2affc41affd3",
+            "name": "AI Agent"
+        },
+        {
+            "parameters": {
+                "sessionIdType": "customKey",
+                "sessionKey": "={{ $('WhatsApp Trigger').item.json.contacts[0].wa_id }}",
+                "contextWindowLength": 20
+            },
+            "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+            "typeVersion": 1.3,
+            "position": [
+                456,
+                208
+            ],
+            "id": "e6ad1392-7aaf-4f17-ad0c-10d3e8e7f3f9",
+            "name": "Simple Memory"
+        },
+        {
+            "parameters": {
+                "model": {
+                    "__rl": true,
+                    "mode": "list",
+                    "value": "gpt-4o-mini"
+                },
+                "builtInTools": {},
+                "options": {}
+            },
+            "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+            "typeVersion": 1.3,
+            "position": [
+                312,
+                208
+            ],
+            "id": "f0571615-8feb-48c4-ae4e-fc801dcad053",
+            "name": "OpenAI Chat Model",
+            "credentials": {
+                "openAiApi": {
+                    "id": "BY4CN50Z1eTYdf5H",
+                    "name": "n8n free OpenAI API credits"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "operation": "send",
+                "phoneNumberId": "965447706656193",
+                "recipientPhoneNumber": "={{ $('WhatsApp Trigger').item.json.contacts[0].wa_id }}",
+                "textBody": "={{ $json.output }}",
+                "additionalFields": {}
+            },
+            "type": "n8n-nodes-base.whatsApp",
+            "typeVersion": 1.1,
+            "position": [
+                660,
+                0
+            ],
+            "id": "3e5aa70e-db88-40b4-82e3-a73134e0876a",
+            "name": "Send WhatsApp Message",
+            "webhookId": "141a7168-8a06-4e6c-9d31-8c609be18cb8",
+            "credentials": {
+                "whatsAppApi": {
+                    "id": "RquTSmMnB0Rw4AvU",
+                    "name": "WhatsApp account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "name": "check_role",
+                "description": "ALWAYS call FIRST. Checks if sender is ADMIN, EMPLOYEE, or CLIENT. Returns: role, name, isTeamMember.",
+                "method": "GET",
+                "url": "={{$env.TRIVERN_BASE_URL}}/api/n8n/check-role?phone={{ $('WhatsApp Trigger').item.json.contacts[0].wa_id }}",
+                "sendBody": false
+            },
+            "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+            "typeVersion": 1.1,
+            "position": [
+                428,
+                350
+            ],
+            "id": "tool-check-role",
+            "name": "check_role"
+        },
+        {
+            "parameters": {
+                "name": "save_lead",
+                "description": "Save or update lead in CRM after collecting info. Returns lead score and tier.",
+                "method": "POST",
+                "url": "={{$env.TRIVERN_BASE_URL}}/api/n8n/lead-capture",
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"name\": \"{name}\",\n  \"phone\": \"{{ $('WhatsApp Trigger').item.json.contacts[0].wa_id }}\",\n  \"company\": \"{company}\",\n  \"industry\": \"{industry}\",\n  \"service\": \"{service}\",\n  \"context\": \"{context_or_pain_points}\",\n  \"urgency\": \"{LOW|MEDIUM|HIGH|CRITICAL}\",\n  \"businessType\": \"{business_type}\",\n  \"decisionRole\": \"{decision_role}\"\n}",
+                "placeholderDefinitions": {
+                    "values": [
+                        {
+                            "name": "name",
+                            "description": "Client's name",
+                            "type": "string"
+                        },
+                        {
+                            "name": "company",
+                            "description": "Client's company name (optional)",
+                            "type": "string"
+                        },
+                        {
+                            "name": "industry",
+                            "description": "Client's industry e.g., clinic, consulting, real estate",
+                            "type": "string"
+                        },
+                        {
+                            "name": "service",
+                            "description": "Service the client is interested in",
+                            "type": "string"
+                        },
+                        {
+                            "name": "context_or_pain_points",
+                            "description": "Summary of the client's pain points and situation",
+                            "type": "string"
+                        },
+                        {
+                            "name": "urgency",
+                            "description": "Lead urgency: LOW, MEDIUM, HIGH, or CRITICAL",
+                            "type": "string"
+                        },
+                        {
+                            "name": "business_type",
+                            "description": "Type of business: coach, clinic, consultant, real estate, etc.",
+                            "type": "string"
+                        },
+                        {
+                            "name": "decision_role",
+                            "description": "Client's role: founder, owner, employee, assistant",
+                            "type": "string"
+                        }
+                    ]
+                }
+            },
+            "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+            "typeVersion": 1.1,
+            "position": [
+                544,
+                208
+            ],
+            "id": "tool-save-lead",
+            "name": "save_lead"
+        },
+        {
+            "parameters": {
+                "name": "get_available_slots",
+                "description": "Get available meeting slots. Returns 2 formatted slot options for the client.",
+                "method": "GET",
+                "url": "={{$env.TRIVERN_BASE_URL}}/api/n8n/available-slots?phone={{ $('WhatsApp Trigger').item.json.contacts[0].wa_id }}&priority=auto",
+                "sendBody": false
+            },
+            "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+            "typeVersion": 1.1,
+            "position": [
+                660,
+                208
+            ],
+            "id": "tool-get-slots",
+            "name": "get_available_slots"
+        },
+        {
+            "parameters": {
+                "name": "book_meeting",
+                "description": "Book meeting after client selects slot. Creates Google Calendar event with Meet link.",
+                "method": "POST",
+                "url": "={{$env.TRIVERN_BASE_URL}}/api/n8n/book-meeting",
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"phone\": \"{{ $('WhatsApp Trigger').item.json.contacts[0].wa_id }}\",\n  \"slotStart\": \"{selected_slot_iso}\",\n  \"duration\": 20,\n  \"notes\": \"{meeting_notes}\"\n}",
+                "placeholderDefinitions": {
+                    "values": [
+                        {
+                            "name": "selected_slot_iso",
+                            "description": "ISO datetime of the selected slot",
+                            "type": "string"
+                        },
+                        {
+                            "name": "meeting_notes",
+                            "description": "Brief notes about the meeting",
+                            "type": "string"
+                        }
+                    ]
+                }
+            },
+            "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+            "typeVersion": 1.1,
+            "position": [
+                776,
+                208
+            ],
+            "id": "tool-book-meeting",
+            "name": "book_meeting"
+        },
+        {
+            "parameters": {
+                "name": "save_conversation",
+                "description": "Save conversation to CRM. Call every 5 messages or at conversation end.",
+                "method": "POST",
+                "url": "={{$env.TRIVERN_BASE_URL}}/api/n8n/save-conversation",
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"phone\": \"{{ $('WhatsApp Trigger').item.json.contacts[0].wa_id }}\",\n  \"messages\": {messages_array},\n  \"summary\": \"{conversation_summary}\"\n}",
+                "placeholderDefinitions": {
+                    "values": [
+                        {
+                            "name": "messages_array",
+                            "description": "JSON array of messages",
+                            "type": "string"
+                        },
+                        {
+                            "name": "conversation_summary",
+                            "description": "Brief AI summary of conversation",
+                            "type": "string"
+                        }
+                    ]
+                }
+            },
+            "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+            "typeVersion": 1.1,
+            "position": [
+                892,
+                208
+            ],
+            "id": "tool-save-conversation",
+            "name": "save_conversation"
+        },
+        {
+            "parameters": {
+                "name": "emergency_cancel",
+                "description": "Owner Mode only. Cancel meetings due to emergency. Scope: today/next/all.",
+                "method": "POST",
+                "url": "={{$env.TRIVERN_BASE_URL}}/api/n8n/emergency-cancel",
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"ownerPhone\": \"{{ $('WhatsApp Trigger').item.json.contacts[0].wa_id }}\",\n  \"scope\": \"{cancel_scope}\",\n  \"reason\": \"{reason}\"\n}",
+                "placeholderDefinitions": {
+                    "values": [
+                        {
+                            "name": "cancel_scope",
+                            "description": "Scope: 'today', 'next', or 'all'",
+                            "type": "string"
+                        },
+                        {
+                            "name": "reason",
+                            "description": "Brief reason for cancellation",
+                            "type": "string"
+                        }
+                    ]
+                }
+            },
+            "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+            "typeVersion": 1.1,
+            "position": [
+                1008,
+                208
+            ],
+            "id": "tool-emergency-cancel",
+            "name": "emergency_cancel"
+        }
+    ],
+    "pinData": {},
+    "connections": {
+        "WhatsApp Trigger": {
+            "main": [
+                [
+                    {
+                        "node": "Filter Text Messages",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Filter Text Messages": {
+            "main": [
+                [
+                    {
+                        "node": "AI Agent",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "AI Agent": {
+            "main": [
+                [
+                    {
+                        "node": "Send WhatsApp Message",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Simple Memory": {
+            "ai_memory": [
+                [
+                    {
+                        "node": "AI Agent",
+                        "type": "ai_memory",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "OpenAI Chat Model": {
+            "ai_languageModel": [
+                [
+                    {
+                        "node": "AI Agent",
+                        "type": "ai_languageModel",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "check_role": {
+            "ai_tool": [
+                [
+                    {
+                        "node": "AI Agent",
+                        "type": "ai_tool",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "save_lead": {
+            "ai_tool": [
+                [
+                    {
+                        "node": "AI Agent",
+                        "type": "ai_tool",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "get_available_slots": {
+            "ai_tool": [
+                [
+                    {
+                        "node": "AI Agent",
+                        "type": "ai_tool",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "book_meeting": {
+            "ai_tool": [
+                [
+                    {
+                        "node": "AI Agent",
+                        "type": "ai_tool",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "save_conversation": {
+            "ai_tool": [
+                [
+                    {
+                        "node": "AI Agent",
+                        "type": "ai_tool",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "emergency_cancel": {
+            "ai_tool": [
+                [
+                    {
+                        "node": "AI Agent",
+                        "type": "ai_tool",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "active": true,
+    "settings": {
+        "executionOrder": "v1",
+        "binaryMode": "separate",
+        "availableInMCP": false
+    },
+    "versionId": "v4-optimized",
+    "meta": {
+        "templateCredsSetupCompleted": true,
+        "instanceId": "4890ba239129823e3b1020335d297e6a0e01f9a2fc49aa0014905a8bacbaf2ff"
+    },
+    "id": "vaYrMX9sixdZ6Vts",
+    "tags": []
+}

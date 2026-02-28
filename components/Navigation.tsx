@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ArrowRight, Menu, X } from "lucide-react";
+import ThemeToggle from "./ThemeToggle";
 
 const navLinks = [
     { href: "/", label: "Home" },
@@ -57,7 +58,7 @@ export default function Navigation() {
                                 {isActive && (
                                     <span
                                         aria-hidden="true"
-                                        className="absolute inset-0 -z-0 rounded-xl bg-white/5 border border-white/10 shadow-[var(--shadow-xs)]"
+                                        className="absolute inset-0 -z-0 rounded-xl bg-muted/50 border border-border shadow-[var(--shadow-xs)]"
                                     />
                                 )}
                             </Link>
@@ -65,8 +66,9 @@ export default function Navigation() {
                     })}
                 </nav>
 
-                {/* CTA + mobile toggle */}
+                {/* Theme toggle + CTA + mobile toggle */}
                 <div className="flex items-center gap-2">
+                    <ThemeToggle />
                     <Link href="/contact" className="hidden md:inline-flex">
                         <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring hover-elevate active-elevate-2 bg-primary border border-primary-border min-h-9 group relative overflow-hidden rounded-xl px-5 py-2.5 font-semibold bg-gradient-to-b from-accent/95 to-accent/80 text-primary-foreground shadow-accent/20 hover:shadow-accent/25 transition-all duration-300 ease-out hover:-translate-y-0.5 active:translate-y-0">
                             Get an install plan
@@ -76,7 +78,7 @@ export default function Navigation() {
                     <div className="md:hidden">
                         <button
                             onClick={() => setOpen(!open)}
-                            className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring hover-elevate active-elevate-2 text-foreground min-h-9 px-4 py-2 rounded-xl border border-white/10 bg-white/5 hover:bg-white/[0.08]"
+                            className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring hover-elevate active-elevate-2 text-foreground min-h-9 px-4 py-2 rounded-xl border border-border bg-muted/50 hover:bg-muted"
                         >
                             {open ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
                             <span className="sr-only">{open ? "Close" : "Open"} menu</span>
@@ -95,7 +97,7 @@ export default function Navigation() {
                                 href={link.href}
                                 onClick={() => setOpen(false)}
                                 className={`block rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors ${pathname === link.href
-                                    ? "text-foreground bg-white/5"
+                                    ? "text-foreground bg-muted/50"
                                     : "text-muted-foreground hover:text-foreground"
                                     }`}
                             >

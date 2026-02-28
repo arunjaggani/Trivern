@@ -58,7 +58,7 @@ export default function Footer() {
 
                     {/* CTA card */}
                     <div className="md:justify-self-end">
-                        <div className="rounded-2xl glass soft-border p-5 shadow-[var(--shadow-sm)]">
+                        <div className="rounded-2xl glass soft-border p-5 shadow-[var(--shadow-sm)] bg-card">
                             <div className="text-sm font-semibold">
                                 Ready for a clean install?
                             </div>
@@ -66,7 +66,7 @@ export default function Footer() {
                                 One conversation, then we map the system.
                             </p>
                             <Link href="/contact" className="mt-4 inline-flex">
-                                <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium focus-visible:outline-none hover-elevate active-elevate-2 min-h-9 px-4 py-2 group rounded-xl bg-white/10 hover:bg-white/[0.14] border border-white/10 text-foreground transition-all duration-300">
+                                <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium focus-visible:outline-none hover-elevate active-elevate-2 min-h-9 px-4 py-2 group rounded-xl bg-muted hover:bg-muted/80 border border-border text-foreground transition-all duration-300">
                                     Contact
                                     <ArrowRight className="ml-2 h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5" />
                                 </button>

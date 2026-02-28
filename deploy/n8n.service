@@ -1,0 +1,49 @@
+# ─── n8n Systemd Service ─────────────────────────────
+# Place this at: /etc/systemd/system/n8n.service
+# Then: sudo systemctl enable n8n && sudo systemctl start n8n
+
+[Unit]
+Description=n8n Workflow Automation
+After=network.target mysql.service
+Wants=mysql.service
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+
+# n8n environment
+Environment=N8N_PORT=5678
+Environment=N8N_PROTOCOL=https
+Environment=N8N_HOST=n8n.trivern.com
+Environment=WEBHOOK_URL=https://n8n.trivern.com/
+Environment=N8N_EDITOR_BASE_URL=https://n8n.trivern.com/
+Environment=GENERIC_TIMEZONE=Asia/Kolkata
+
+# Use SQLite for n8n's own DB (simple, reliable)
+Environment=DB_TYPE=sqlite
+Environment=DB_SQLITE_DATABASE=/var/lib/n8n/database.sqlite
+
+# Trivern connection
+Environment=TRIVERN_BASE_URL=http://localhost:3000
+
+# Security
+Environment=N8N_BASIC_AUTH_ACTIVE=true
+Environment=N8N_BASIC_AUTH_USER=admin
+Environment=N8N_BASIC_AUTH_PASSWORD=CHANGE_THIS_PASSWORD
+
+# Data directory
+Environment=N8N_USER_FOLDER=/var/lib/n8n
+Environment=EXECUTIONS_DATA_SAVE_ON_ERROR=all
+Environment=EXECUTIONS_DATA_SAVE_ON_SUCCESS=all
+
+ExecStart=/usr/bin/n8n start
+Restart=always
+RestartSec=10
+
+# Logging
+StandardOutput=append:/var/log/n8n/n8n.log
+StandardError=append:/var/log/n8n/error.log
+
+[Install]
+WantedBy=multi-user.target

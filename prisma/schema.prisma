@@ -1,0 +1,150 @@
+// Trivern Agency System — Prisma Schema
+// Local dev: SQLite | Production (Hostinger): MySQL
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Auth ───────────────────────────────────────────
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  phone        String?  @unique // WhatsApp number — Zara uses this to recognize owner/employee
+  role         String   @default("EMPLOYEE") // "ADMIN" | "EMPLOYEE"
+  createdAt    DateTime @default(now())
+}
+
+// ─── Clients / Leads ────────────────────────────────
+
+model Client {
+  id           String   @id @default(cuid())
+  name         String
+  company      String?
+  email        String?
+  phone        String
+  service      String?
+  context      String?
+
+  // Source
+  source String? // "WhatsApp" | "Website" | "Referral"
+  status String  @default("NEW") // NEW | CONTACTED | BOOKED | CLOSED | LOST
+
+  // Lead Scoring — 5 Pillars (100 total)
+  score           Int  @default(0) // Composite score
+  fitScore        Int  @default(0) // Max 20
+  painScore       Int  @default(0) // Max 25
+  intentScore     Int  @default(0) // Max 20
+  authorityScore  Int  @default(0) // Max 20
+  engagementScore Int  @default(0) // Max 15
+  scoreOverride   Int? // Manual override by owner
+
+  // Lead metadata
+  industry     String?
+  intent       String?
+  painCategory String?
+  budgetHint   String?
+  urgency      String? // LOW | MEDIUM | HIGH | CRITICAL
+  businessType String? // coach, clinic, consultant, etc.
+  decisionRole String? // founder, owner, employee, assistant
+
+  // Founder escalation
+  escalated        Boolean @default(false)
+  escalationReason String?
+
+  notes   String?
+  remarks String?
+
+  meetings      Meeting[]
+  conversations Conversation[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ─── Meetings ───────────────────────────────────────
+
+model Meeting {
+  id              String   @id @default(cuid())
+  clientId        String
+  client          Client   @relation(fields: [clientId], references: [id])
+  date            DateTime
+  duration        Int      @default(20) // minutes
+  meetLink        String?
+  calendarEventId String?
+
+  status    String   @default("SCHEDULED") // SCHEDULED | COMPLETED | CANCELLED | NO_SHOW | RESCHEDULED
+  attended  Boolean?
+  remarks   String?
+  highlights    String?
+  requirements  String?
+  outcome       String?
+  recordingLink String?
+
+  prepDocGenerated Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ─── Conversations ──────────────────────────────────
+
+model Conversation {
+  id            String   @id @default(cuid())
+  clientId      String
+  client        Client   @relation(fields: [clientId], references: [id])
+  messages      String   @default("[]") // JSON string: [{role, content, timestamp}]
+  summary       String?
+  status        String   @default("active")
+  lastMessageAt DateTime @default(now())
+  createdAt     DateTime @default(now())
+}
+
+// ─── Site Config ────────────────────────────────────
+
+model SiteConfig {
+  id        String   @id @default(cuid())
+  key       String   @unique // "hero_title", "services", "faqs", etc.
+  value     String   @default("{}") // JSON string
+  updatedAt DateTime @updatedAt
+}
+
+// ─── Booking Settings ───────────────────────────────
+
+model BookingSettings {
+  id            String  @id @default(cuid())
+  startHour     Int     @default(9)  // 9 AM
+  endHour       Int     @default(21) // 9 PM
+  slotDuration  Int     @default(30) // minutes
+  bufferMinutes Int     @default(30)
+  maxPerDay     Int     @default(6)
+  blockedDates  String  @default("[]") // JSON string
+  holidays      String  @default("[]") // JSON string
+  automationOn  Boolean @default(true)
+}
+
+// ─── Blog ──────────────────────────────────────────
+
+model BlogPost {
+  id          String    @id @default(cuid())
+  title       String
+  slug        String    @unique
+  content     String    @default("") // Markdown
+  excerpt     String?
+  coverImage  String?
+  published   Boolean   @default(false)
+  publishedAt DateTime?
+  author      String    @default("Trivern")
+  tags        String    @default("[]") // JSON array
+  metaTitle   String?   // SEO
+  metaDesc    String?   // SEO
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
