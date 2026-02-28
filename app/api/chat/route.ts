@@ -106,7 +106,7 @@ export async function POST(req: NextRequest) {
         const prompt = ZARA_SYSTEM_PROMPT.replace("Max 80 words per message", `Max ${maxWords} words per message`);
 
         const stream = await openai.chat.completions.create({
-            model: "gpt-4o-mini",
+            model: "gpt-5-mini",
             messages: [
                 { role: "system", content: prompt },
                 ...messages.map((m: any) => ({

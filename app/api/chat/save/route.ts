@@ -9,7 +9,7 @@ async function extractLeadInfo(messages: { role: string; content: string }[]) {
     try {
         const conversation = messages.map(m => `${m.role}: ${m.content}`).join("\n");
         const res = await openai.chat.completions.create({
-            model: "gpt-4o-mini",
+            model: "gpt-5-mini",
             messages: [
                 {
                     role: "system",
@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
         let summary = "";
         try {
             const summaryRes = await openai.chat.completions.create({
-                model: "gpt-4o-mini",
+                model: "gpt-5-mini",
                 messages: [
                     {
                         role: "system",

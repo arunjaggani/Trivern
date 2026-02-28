@@ -1,0 +1,19 @@
+#!/bin/bash
+# Creates the production .env file — run once, then delete this script
+# Usage: bash deploy/init-env.sh YOUR_OPENAI_KEY
+
+OPENAI_KEY=${1:-"ADD_YOUR_OPENAI_KEY_HERE"}
+
+cat > /var/www/trivern/.env << ENVEOF
+DATABASE_URL="mysql://trivern_user:0Pi2lufPREclnK+kBoH8OdbBS28fNsdw@localhost:3306/trivern_db"
+NEXTAUTH_SECRET="RXHGg2SjPkYFlBisBaZdkevHbe0bsQb3dORenMJ9p9o="
+NEXTAUTH_URL="https://trivern.tech"
+GOOGLE_SHEETS_SPREADSHEET_ID=1GeV8wzRIDdGYfyXeAS9DV645LvxW-p9DHKNniUml2As
+GOOGLE_SERVICE_ACCOUNT_EMAIL=trivern-contact-form@trivern-website.iam.gserviceaccount.com
+GOOGLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQDASpkPL1VnMMXh\nrlYar3M9BKW9Ae+YBpzfhZ/lvjh3yVo0f3KNZ56tx4VhLMeI4qWgMrDDCXlY0dAL\nQpny5UNrG16C4hV8x8Ld7IXnX9zXaFUZfWVc1ubFbf9EqfD54KsTRNO4M81IpCqV\nhaDVSVYqkqOganslo/oWdghiiFSir8tHZlMGPZ9xVaLCrWV4e8Kw2av5acCQtMtI\nacJ6kt8lzAQNITquWNRjAow6zZxREGYq8qOR9DIJx6ZJuTeKt4ycklj9uhzsUTi2\nq2BvytkSu9jqTwjZZsrnr1JBSV5wGdql1LKgEpBJ+/Cc1fHlQDyU0VcpAFQpPdsy\nCfm5fl71AgMBAAECggEAC4QsOImYLs7v+v0q8PwzBaOCnZhBFjTHLmfdVLAYx6vK\neDxtyuQ6z6OUbGZ3KM6SJs8CYRvvJY+jSxlZCQAMEp0YAvSxXsDD/fCNcHcATfJU\nrmshJ/dC6O4WjLE02nJHLKdBmtWXZNNYLY5MPJngzDnuDMxzxaRVdQTqqaQKlZeh\nGsnyOGwyMVgtHMDurfh89BLiMbKUgeOE0lNuWDPYGHd8McFGAkDeWrHOCbaY4XNl\nkJ59oJeyxqXRgolQcO2XTbn7TrXbmHA3IbN6wG6/yQY8PAGg3DusD2rnFKhjvMgR\n4s2+WUzwzkNfMIl5w396SDfC4O6vv3+DX0H2UEP5HQKBgQDjCgwdEjQ0OqbEEoO8\nIvW5WUfrdcV7QjxQuNN0Jk+7ASDj9VgyAXDyM+bqoviHm3oFyE+icbI4dN8Ow2nm\nLc6xrVuAe0VNRWMiJdaKSITMdBV7CGkljrS0bF3vXK0P23CUSQm4Ebc0vjWqGdGo\n64NBqwHZsRdJWUExk60GaI0NGwKBgQDY0dyXPeg+06aOiKJ9xYAbLS9g3AiR+mWE\njNTPn/lKFSw5QNhgbl1w2uUOnK7BnLgpNKakDCXW/a7b/E9BCpidq10hH2/mQ95l\nwHgwwPiuQcVlXga0JQb9K1tl7AProFlEnBVSq1y4aP/FxIW7o6DRc476dJzAk6OC\n5CE79a1VLwKBgEyNzLvYsYWS6Txfyc+cMiLHOfrpASeok9HcIGCfsm6p2L9EsPJb\njgv8+DXRsd93y1M70a5CjAeBUN0XgxO8Cl/axmmyJxIA/YY8H/UMssqFseCEW3/w\neHoFuD7HjwszwOgfIInSX2YHZOzwO8OrddyknsEad3GiCNuAoezxP+5VAoGASv2S\nyTCdQhWcFtJFOTD1FPE04NBZmnu7XvQCqukOpMPb7tVxwTCK2vyqmrowa0CUJZRT\nSov1Dn3hW67RjpJmpKnfZRRldIPmyNSf/WTQ3hxbdKrnsKjZ2PiE/SR7WqS0G1nM\nujIQuKuAQ1usUXDPr4HDYvawPJ8Tv7K9l+pqD/sCgYBT9XhewdaD4x/tyo/VLN4k\nhwlJAbN/87Uk1URTvXI6KtSNpJJcliOyihPae0VaSeI5+1Yk2572Oz1L/Dt6zbLE\n6wnN9korArD3ZGwLcWiA5v3UooNJqIp41v++0yVL5gx09ebLQxq+cFDu8zAIqi0t\nA86Vo1KyyYM9YZudJBpxEA==\n-----END PRIVATE KEY-----\n"
+N8N_WEBHOOK_URL="http://localhost:5678/webhook/meeting-events"
+OPENAI_API_KEY="${OPENAI_KEY}"
+ENVEOF
+
+echo "✅ .env file created at /var/www/trivern/.env"
+echo "⚠️  Now delete this script: rm /var/www/trivern/deploy/init-env.sh"
