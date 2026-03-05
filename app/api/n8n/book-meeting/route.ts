@@ -64,8 +64,9 @@ export async function POST(req: Request) {
 
             calendarEventId = event.data.id || null;
             meetLink = event.data.hangoutLink || event.data.conferenceData?.entryPoints?.[0]?.uri || null;
-        } catch (calError) {
-            console.warn("[n8n/book-meeting] Calendar API unavailable:", calError);
+        } catch (calError: any) {
+            console.error("[n8n/book-meeting] Calendar API FAILED:", calError?.message || calError);
+            console.error("[n8n/book-meeting] Calendar error details:", JSON.stringify(calError?.errors || calError?.response?.data || {}, null, 2));
         }
 
         // Save meeting to DB
@@ -112,11 +113,15 @@ export async function POST(req: Request) {
             timeZone: "Asia/Kolkata",
         });
 
+        const meetLinkLine = meetLink
+            ? `🔗 Google Meet: ${meetLink}`
+            : `📌 Note: Google Meet link could not be generated automatically. Please share the link with the client manually, or ask them to check their email invite.`;
+
         return NextResponse.json({
             success: true,
             meetingId: meeting.id,
             meetLink,
-            confirmationText: `Perfect, ${client.name} 🎯\n\nYou're confirmed for:\n📅 ${dateFormatted}\n⏰ Duration: ${duration} minutes\n${meetLink ? `🔗 Meeting link: ${meetLink}` : ""}\n\nYou'll receive reminders before the meeting.\nLooking forward to helping you structure this properly.`,
+            confirmationText: `Your meeting is confirmed! 🎯\n\n📅 *${dateFormatted}*\n⏰ Duration: ${duration} minutes\n${meetLinkLine}\n\nYou'll get reminders at 24 hours, 2 hours, and 15 minutes before.\nLooking forward to it — come ready with your biggest challenge.`,
         });
     } catch (error: any) {
         console.error("[n8n/book-meeting] Error:", error);
