@@ -24,7 +24,8 @@ export async function POST(req: Request) {
         const endDate = new Date(meetingDate.getTime() + duration * 60000);
 
         let calendarEventId: string | null = null;
-        let meetLink: string | null = null;
+        // Start with the fallback permanent Meet room — overwritten if Calendar API succeeds
+        let meetLink: string | null = process.env.FALLBACK_MEET_LINK || null;
 
         // Create Google Calendar event + Meet link
         try {
@@ -63,10 +64,12 @@ export async function POST(req: Request) {
             });
 
             calendarEventId = event.data.id || null;
-            meetLink = event.data.hangoutLink || event.data.conferenceData?.entryPoints?.[0]?.uri || null;
+            // If Calendar generates a Meet link, use it — otherwise keep the fallback
+            meetLink = event.data.hangoutLink || event.data.conferenceData?.entryPoints?.[0]?.uri || meetLink;
         } catch (calError: any) {
             console.error("[n8n/book-meeting] Calendar API FAILED:", calError?.message || calError);
             console.error("[n8n/book-meeting] Calendar error details:", JSON.stringify(calError?.errors || calError?.response?.data || {}, null, 2));
+            // meetLink still holds FALLBACK_MEET_LINK if set
         }
 
         // Save meeting to DB
@@ -115,7 +118,7 @@ export async function POST(req: Request) {
 
         const meetLinkLine = meetLink
             ? `🔗 Google Meet: ${meetLink}`
-            : `📌 Note: Google Meet link could not be generated automatically. Please share the link with the client manually, or ask them to check their email invite.`;
+            : `📌 Our team will send the meeting link separately before the call.`;
 
         return NextResponse.json({
             success: true,
