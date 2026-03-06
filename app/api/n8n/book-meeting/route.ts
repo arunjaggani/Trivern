@@ -24,8 +24,9 @@ export async function POST(req: Request) {
         const endDate = new Date(meetingDate.getTime() + duration * 60000);
 
         let calendarEventId: string | null = null;
-        // Start with the fallback permanent Meet room — overwritten if Calendar API succeeds
-        let meetLink: string | null = process.env.FALLBACK_MEET_LINK || null;
+        // Fallback permanent Meet room — used when Calendar API can't generate a link
+        const HARDCODED_MEET_LINK = "https://meet.google.com/hvb-zqzt-xtk";
+        let meetLink: string | null = process.env.FALLBACK_MEET_LINK || HARDCODED_MEET_LINK;
 
         // Create Google Calendar event + Meet link
         try {
@@ -120,10 +121,12 @@ export async function POST(req: Request) {
             ? `🔗 Google Meet: ${meetLink}`
             : `📌 Our team will send the meeting link separately before the call.`;
 
+        // NOTE: meetLink is intentionally excluded from the response.
+        // Zara must use confirmationText verbatim — including or excluding the link
+        // based purely on what confirmationText contains.
         return NextResponse.json({
             success: true,
             meetingId: meeting.id,
-            meetLink,
             confirmationText: `Your meeting is confirmed! 🎯\n\n📅 *${dateFormatted}*\n⏰ Duration: ${duration} minutes\n${meetLinkLine}\n\nYou'll get reminders at 24 hours, 2 hours, and 15 minutes before.\nLooking forward to it — come ready with your biggest challenge.`,
         });
     } catch (error: any) {
