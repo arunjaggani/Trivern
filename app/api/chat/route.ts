@@ -102,7 +102,7 @@ export async function POST(req: NextRequest) {
         const prompt = ZARA_SYSTEM_PROMPT.replace("Max 80 words per message", `Max ${maxWords} words per message`);
 
         const stream = await openai.chat.completions.create({
-            model: "gpt-5-mini",
+            model: "gpt-4o-mini",
             messages: [
                 { role: "system", content: prompt },
                 ...messages.map((m: any) => ({
@@ -111,7 +111,8 @@ export async function POST(req: NextRequest) {
                 })),
             ],
             stream: true,
-            max_completion_tokens: Math.max(150, Math.round(maxWords * 2.5)),
+            temperature: 0.7,
+            max_tokens: Math.max(150, Math.round(maxWords * 2.5)),
         });
 
         const encoder = new TextEncoder();
