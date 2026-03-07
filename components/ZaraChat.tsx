@@ -19,7 +19,14 @@ interface LeadData {
     company: string;
 }
 
-const GREETING = "Hey there! 👋 I'm Zara, Trivern's AI Growth Consultant.\n\nWhat brings you here today — exploring something for your business?";
+const GREETING = `Hey there! 👋 I'm Zara, Trivern's AI assistant.
+
+Here's what I can help you with:
+📅 Book a free discovery call
+💬 Learn about our services
+🤝 See how AI can grow your business
+
+How would you like to continue?`;
 
 // Parse [READY_TO_BOOK:name=X,phone=Y,company=Z] marker from content
 function extractReadyToBook(content: string): { lead: LeadData | null; cleanContent: string } {
@@ -51,11 +58,12 @@ export default function ZaraChat() {
     const [greeted, setGreeted] = useState(false);
     const [enabled, setEnabled] = useState<boolean | null>(null);
 
-    // Booking flow state
     const [slots, setSlots] = useState<Slot[]>([]);
     const [leadData, setLeadData] = useState<LeadData | null>(null);
     const [bookingLoading, setBookingLoading] = useState(false);
     const [bookingDone, setBookingDone] = useState(false);
+    const [fetchingSlots, setFetchingSlots] = useState(false);
+    const [langChosen, setLangChosen] = useState(false);
 
     const chatEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
@@ -100,9 +108,9 @@ export default function ZaraChat() {
         }
     };
 
-    // Fetch slots and store lead data when READY_TO_BOOK is detected
     const triggerBookingFlow = useCallback(async (lead: LeadData) => {
         setLeadData(lead);
+        setFetchingSlots(true);
         try {
             const res = await fetch(`/api/chat/slots?phone=${encodeURIComponent(lead.phone)}`);
             const data = await res.json();
@@ -114,6 +122,7 @@ export default function ZaraChat() {
         } catch {
             setSlots([]);
         }
+        setFetchingSlots(false);
     }, []);
 
     // Book a selected slot
@@ -206,6 +215,7 @@ export default function ZaraChat() {
                     updated[updated.length - 1] = { role: "assistant", content: cleanContent };
                     return updated;
                 });
+                setFetchingSlots(true); // Lock input immediately
                 await triggerBookingFlow(lead);
             }
 
@@ -415,6 +425,44 @@ export default function ZaraChat() {
                                 </div>
                             </div>
                         ))}
+
+                        {/* Language quick-reply — shown after greeting, before user responds */}
+                        {!langChosen && messages.length === 1 && !streaming && (
+                            <div className="zara-msg assistant">
+                                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                                    {[
+                                        { label: "🇬🇧 English", text: "Continue in English" },
+                                        { label: "🇮🇳 తెలుగు", text: "తెలుగులో కొనసాగించు" },
+                                    ].map(({ label, text }) => (
+                                        <button key={label} className="zara-slot-btn"
+                                            style={{ fontSize: "12px", padding: "6px 12px" }}
+                                            onClick={async () => {
+                                                setLangChosen(true);
+                                                const userMsg = { role: "user" as const, content: text };
+                                                const newMsgs = [messages[0], userMsg];
+                                                setMessages([...newMsgs, { role: "assistant", content: "" }]);
+                                                setStreaming(true);
+                                                try {
+                                                    const res = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: newMsgs }) });
+                                                    if (!res.ok) { setStreaming(false); return; }
+                                                    const reader = res.body?.getReader();
+                                                    const decoder = new TextDecoder();
+                                                    let content = "";
+                                                    while (reader) {
+                                                        const { done, value } = await reader.read();
+                                                        if (done) break;
+                                                        content += decoder.decode(value, { stream: true });
+                                                        setMessages(prev => { const u = [...prev]; u[u.length - 1] = { role: "assistant", content }; return u; });
+                                                    }
+                                                } catch { }
+                                                setStreaming(false);
+                                            }}>
+                                            {label}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
 
                         {/* Slot picker — shown when READY_TO_BOOK detected */}
                         {slots.length > 0 && !bookingDone && (

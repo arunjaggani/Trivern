@@ -9,14 +9,17 @@ import { sendWhatsAppMessage } from "@/lib/whatsapp";
 
 export async function POST(req: Request) {
     try {
-        const { name, phone, company, service, slotStart } = await req.json();
+        const { name, phone: rawPhone, company, service, slotStart } = await req.json();
 
-        if (!phone || !slotStart) {
+        if (!rawPhone || !slotStart) {
             return NextResponse.json({ error: "phone and slotStart are required" }, { status: 400 });
         }
         if (!name) {
             return NextResponse.json({ error: "name is required" }, { status: 400 });
         }
+
+        // Sanitize phone: strip +, spaces, dashes → Meta needs plain digits e.g. 916309505052
+        const phone = rawPhone.replace(/[\s\+\-\(\)]/g, "");
 
         const meetingDate = new Date(slotStart);
         const duration = 20;
