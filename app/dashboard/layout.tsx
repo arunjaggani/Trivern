@@ -110,6 +110,7 @@ function DashboardSidebar({ collapsed, setCollapsed }: { collapsed: boolean; set
                         <div className="space-y-1">
                             <NavItem href="/dashboard/team" label="Team" icon={UserCog} />
                             <NavItem href="/dashboard/zara" label="Zara Chatbot" icon={Bot} />
+                            <NavItem href="/dashboard/settings" label="Account Settings" icon={Settings} />
                         </div>
                     </div>
                 )}
