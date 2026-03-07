@@ -21,12 +21,12 @@ interface LeadData {
 
 const GREETING = `Hey there! 👋 I'm Zara, Trivern's AI assistant.
 
-Here's what I can help you with:
-📅 Book a free discovery call
-💬 Learn about our services
-🤝 See how AI can grow your business
+Here's what I can help you:
+📅 Book a free 20-min discovery call
+💬 Learn what's possible for your business
+🤝 Our experts will find the best solution for you
 
-How would you like to continue?`;
+First things first — what should I call you? 😊`;
 
 // Parse [READY_TO_BOOK:name=X,phone=Y,company=Z] marker from content
 function extractReadyToBook(content: string): { lead: LeadData | null; cleanContent: string } {
