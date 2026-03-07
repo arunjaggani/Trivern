@@ -456,16 +456,16 @@ export default function ZaraChat() {
                         <input
                             ref={inputRef}
                             className="zara-input"
-                            placeholder={slots.length > 0 ? "Or type to continue chatting..." : "Type a message..."}
+                            placeholder={slots.length > 0 ? "👆 Please select a slot above..." : "Type a message..."}
                             value={input}
                             onChange={e => setInput(e.target.value)}
                             onKeyDown={handleKeyDown}
-                            disabled={streaming || bookingLoading}
+                            disabled={streaming || bookingLoading || slots.length > 0}
                         />
                         <button
                             className="zara-send"
                             onClick={sendMessage}
-                            disabled={!input.trim() || streaming || bookingLoading}
+                            disabled={!input.trim() || streaming || bookingLoading || slots.length > 0}
                             aria-label="Send message"
                         >
                             <Send size={16} />
