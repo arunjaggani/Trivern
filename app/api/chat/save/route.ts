@@ -30,7 +30,7 @@ Only include info explicitly stated by the visitor. Set null if not mentioned.`,
                 { role: "user", content: conversation },
             ],
             temperature: 0,
-            max_tokens: 300,
+            max_completion_tokens: 300,
         });
 
         const text = res.choices[0]?.message?.content?.trim() || "{}";
@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
                     },
                 ],
                 temperature: 0,
-                max_tokens: 100,
+                max_completion_tokens: 100,
             });
             summary = summaryRes.choices[0]?.message?.content?.trim() || "";
         } catch { }
