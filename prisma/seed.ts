@@ -110,51 +110,7 @@ async function main() {
         },
     ];
 
-    for (const client of sampleClients) {
-        await prisma.client.create({ data: client });
-    }
-
-    // Seed a sample conversation
-    const adiClient = await prisma.client.findFirst({
-        where: { name: "Adi Narayana" },
-    });
-
-    if (adiClient) {
-        await prisma.conversation.create({
-            data: {
-                clientId: adiClient.id,
-                messages: JSON.stringify([
-                    { role: "client", content: "Hi, this is Adi from Shivam. I'm interested in Build a professional website. Phone: +91955XXXXXXXX. Looking forward to discussing further.", timestamp: "2026-02-23T09:18:00Z" },
-                    { role: "agent", content: "Hi Adi 👋 Thanks for reaching out — I'm Zara, your Growth Consultant at Trivern. Quick question to guide you properly — what's the main goal or challenge you want this website to solve?", timestamp: "2026-02-23T09:19:00Z" },
-                    { role: "client", content: "I want a website", timestamp: "2026-02-23T09:19:30Z" },
-                    { role: "agent", content: "Nice, Adi 👋 — happy to help. Quick question — what does your business do, and who do you serve?", timestamp: "2026-02-23T09:19:45Z" },
-                    { role: "client", content: "Shivam construction", timestamp: "2026-02-23T09:20:00Z" },
-                    { role: "agent", content: "Great — thanks, Adi. Quick question — what's the main goal for the new website?\nA) Get more leads/enquiries\nB) Showcase past projects/portfolio\nC) Let clients request quotes/book site visits\nD) Other", timestamp: "2026-02-23T09:20:15Z" },
-                    { role: "client", content: "B", timestamp: "2026-02-23T09:21:00Z" },
-                    { role: "agent", content: "Perfect — showcasing past projects is the right move for a construction business. Quick question — do you already have a website, or is this a brand-new site?", timestamp: "2026-02-23T09:21:15Z" },
-                    { role: "client", content: "New one", timestamp: "2026-02-23T09:21:30Z" },
-                    { role: "agent", content: "Perfect, Adi — thanks for that.\n\nA 20-minute clarity call will help us map a portfolio-led site that highlights your projects and wins clients.\nFree, no commitment.\n\nHere are two slots:\n📅 Wed, 25 Feb at 11:00 AM IST\n📅 Thu, 26 Feb at 4:00 PM IST\n\nWhich works better for you?", timestamp: "2026-02-23T09:21:45Z" },
-                    { role: "client", content: "25 feb", timestamp: "2026-02-23T09:22:00Z" },
-                    { role: "agent", content: "Perfect, Adi 🎯\n\nYou're confirmed for:\n📅 Wednesday, 25 Feb\n⏰ 11:00 AM IST\n\nYou'll receive a calendar invite with the meeting link shortly.\nIs there one project or photo gallery you'd like us to review before the call?", timestamp: "2026-02-23T09:23:00Z" },
-                ]),
-                summary: "Construction company owner looking for portfolio website. Booked discovery call for 25 Feb 11 AM IST.",
-                status: "completed",
-            },
-        });
-
-        // Seed a sample meeting
-        await prisma.meeting.create({
-            data: {
-                clientId: adiClient.id,
-                date: new Date("2026-02-25T05:30:00Z"), // 11:00 AM IST
-                duration: 20,
-                meetLink: "https://meet.google.com/abc-defg-hij",
-                status: "SCHEDULED",
-            },
-        });
-    }
-
-    console.log("✅ Database seeded successfully!");
+    console.log("✅ Database seeded successfully! Users and booking settings created.");
 }
 
 main()

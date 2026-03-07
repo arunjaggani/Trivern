@@ -100,7 +100,7 @@ model Conversation {
   id            String   @id @default(cuid())
   clientId      String
   client        Client   @relation(fields: [clientId], references: [id])
-  messages      String   @default("[]") // JSON string: [{role, content, timestamp}]
+  messages      String   @default("[]") @db.LongText // JSON string: [{role, content, timestamp}]
   summary       String?
   status        String   @default("active")
   lastMessageAt DateTime @default(now())
@@ -112,7 +112,7 @@ model Conversation {
 model SiteConfig {
   id        String   @id @default(cuid())
   key       String   @unique // "hero_title", "services", "faqs", etc.
-  value     String   @default("{}") // JSON string
+  value     String   @default("{}") @db.LongText // JSON string
   updatedAt DateTime @updatedAt
 }
 
@@ -136,7 +136,7 @@ model BlogPost {
   id          String    @id @default(cuid())
   title       String
   slug        String    @unique
-  content     String    @default("") // Markdown
+  content     String    @default("") @db.LongText // Markdown
   excerpt     String?
   coverImage  String?
   published   Boolean   @default(false)
