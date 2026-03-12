@@ -1,3 +1,10 @@
-// Re-export team page from its original location
-// Sidebar now links to /dashboard/settings/team but the team component lives at /dashboard/team
-export { default } from "@/app/dashboard/team/page";
+"use client";
+
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+
+export default function SettingsTeamRedirect() {
+    const router = useRouter();
+    useEffect(() => { router.replace("/dashboard/team"); }, [router]);
+    return null;
+}

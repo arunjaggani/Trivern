@@ -1,3 +1,4 @@
+"use client";
 import ComingSoonPage from "@/components/ComingSoonPage";
 import { Brain } from "lucide-react";
 export default function LeadIntelligencePage() {

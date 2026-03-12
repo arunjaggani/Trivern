@@ -1,3 +1,4 @@
+"use client";
 import ComingSoonPage from "@/components/ComingSoonPage";
 import { ScrollText } from "lucide-react";
 export default function AutomationLogsPage() {

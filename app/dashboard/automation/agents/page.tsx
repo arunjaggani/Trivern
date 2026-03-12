@@ -1,3 +1,4 @@
+"use client";
 import ComingSoonPage from "@/components/ComingSoonPage";
 import { Bot } from "lucide-react";
 export default function AIAgentsPage() {
