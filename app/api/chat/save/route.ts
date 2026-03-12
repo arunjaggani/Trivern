@@ -2,11 +2,10 @@ import prisma from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
 // Extract lead info from conversation using GPT
 async function extractLeadInfo(messages: { role: string; content: string }[]) {
     try {
+        const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
         const conversation = messages.map(m => `${m.role}: ${m.content}`).join("\n");
         const res = await openai.chat.completions.create({
             model: "gpt-5-mini",
@@ -57,6 +56,7 @@ export async function POST(req: NextRequest) {
         // Generate summary
         let summary = "";
         try {
+            const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
             const summaryRes = await openai.chat.completions.create({
                 model: "gpt-5-mini",
                 messages: [

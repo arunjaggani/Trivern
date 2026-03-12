@@ -1,4 +1,3 @@
-"use client";
 import ComingSoonPage from "@/components/ComingSoonPage";
 import { Workflow } from "lucide-react";
 export default function WorkflowCenterPage() {

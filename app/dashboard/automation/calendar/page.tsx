@@ -1,4 +1,3 @@
-"use client";
 import ComingSoonPage from "@/components/ComingSoonPage";
 import { CalendarCheck } from "lucide-react";
 export default function CalendarSyncPage() {

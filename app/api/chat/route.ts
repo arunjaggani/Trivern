@@ -2,8 +2,6 @@ import { NextRequest } from "next/server";
 import OpenAI from "openai";
 import prisma from "@/lib/prisma";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
 const ZARA_SYSTEM_PROMPT = `You are Zara, Trivern's AI Growth Consultant, chatting with a visitor on the website.
 
 # WHO YOU ARE
@@ -105,6 +103,7 @@ export async function POST(req: NextRequest) {
         // Inject dynamic word limit into system prompt
         const prompt = ZARA_SYSTEM_PROMPT.replace("Max 80 words per message", `Max ${maxWords} words per message`);
 
+        const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
         const stream = await openai.chat.completions.create({
             model: "gpt-4o-mini",
             messages: [

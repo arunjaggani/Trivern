@@ -1,4 +1,3 @@
-"use client";
 import ComingSoonPage from "@/components/ComingSoonPage";
 import { FileSearch } from "lucide-react";
 export default function SEOSettingsPage() {

@@ -1,4 +1,3 @@
-"use client";
 import ComingSoonPage from "@/components/ComingSoonPage";
 import { Plug } from "lucide-react";
 export default function IntegrationsPage() {

@@ -1,4 +1,3 @@
-"use client";
 import ComingSoonPage from "@/components/ComingSoonPage";
 import { Zap } from "lucide-react";
 export default function BookingEnginePage() {

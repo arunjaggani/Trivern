@@ -1,4 +1,3 @@
-"use client";
 import ComingSoonPage from "@/components/ComingSoonPage";
 import { Bell } from "lucide-react";
 export default function NotificationsPage() {
