@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getCalendarClient, CALENDAR_ID } from "@/lib/google-auth";
-import { sendWhatsAppMessage } from "@/lib/whatsapp";
+import { sendWhatsAppMessage, sendWhatsAppTemplate } from "@/lib/whatsapp";
 
 // POST /api/chat/book-web
 // Books a meeting from the web chatbot — saves lead, creates meeting, sends WhatsApp confirmation
@@ -99,15 +99,21 @@ export async function POST(req: Request) {
             timeZone: "Asia/Kolkata",
         });
 
-        // Send WhatsApp confirmation
-        const waMsg = `Hi ${client.name}! 🎯 Your meeting with Trivern is confirmed.\n\n📅 *${dateFormatted}*\n⏰ Duration: 20 minutes\n🔗 Google Meet: ${meetLink}\n\nYou'll get reminders before the meeting. Come ready with your biggest challenge — we're excited to connect! 🚀`;
+        // Send WhatsApp confirmation via Template (bypasses 24hr rule)
+        const templateName = process.env.WHATSAPP_CONFIRM_TEMPLATE || "trivetn_booking";
+        const variables = [
+            client.name,               // {{1}} Name
+            dateFormatted,             // {{2}} Date constraint
+            meetLink || "TBD"          // {{3}} Google Meet link
+        ];
 
-        console.log(`[chat/book-web] Sending WhatsApp to: "${phone}" (raw input: "${rawPhone}")`);
-        const waResult = await sendWhatsAppMessage(phone, waMsg);
+        console.log(`[chat/book-web] Sending WhatsApp Template '${templateName}' to: "${phone}"`);
+        const waResult = await sendWhatsAppTemplate(phone, templateName, variables);
+
         if (!waResult.success) {
             console.warn("[chat/book-web] WhatsApp notification FAILED:", waResult.error);
         } else {
-            console.log("[chat/book-web] WhatsApp sent successfully to:", phone);
+            console.log("[chat/book-web] WhatsApp Template sent successfully to:", phone);
         }
 
         // Only claim WhatsApp was sent if it actually succeeded
