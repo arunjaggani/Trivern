@@ -17,7 +17,7 @@ async function main() {
         },
     });
 
-    // Create employee user
+    // Create manager user
     const empPassword = await bcrypt.hash("employee123", 12);
     await prisma.user.upsert({
         where: { email: "employee@trivern.com" },
@@ -26,7 +26,7 @@ async function main() {
             email: "employee@trivern.com",
             passwordHash: empPassword,
             name: "Team Member",
-            role: "EMPLOYEE",
+            role: "MANAGER",
         },
     });
 

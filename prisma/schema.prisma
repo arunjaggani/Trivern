@@ -18,7 +18,7 @@ model User {
   passwordHash String
   name         String
   phone        String?  @unique // WhatsApp number — Zara uses this to recognize owner/employee
-  role         String   @default("EMPLOYEE") // "ADMIN" | "EMPLOYEE"
+  role         String   @default("STAFF") // "ADMIN" | "MANAGER" | "STAFF"
   createdAt    DateTime @default(now())
 }
 

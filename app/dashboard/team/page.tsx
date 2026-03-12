@@ -32,7 +32,8 @@ export default function TeamPage() {
     const [success, setSuccess] = useState("");
 
     const adminCount = team.filter(m => m.role === "ADMIN").length;
-    const employeeCount = team.filter(m => m.role === "EMPLOYEE").length;
+    const managerCount = team.filter(m => m.role === "MANAGER").length;
+    const staffCount = team.filter(m => m.role === "STAFF" || m.role === "EMPLOYEE").length;
     const currentUserId = (session?.user as any)?.id;
 
     const fetchTeam = () => {
@@ -181,8 +182,8 @@ export default function TeamPage() {
                             <UsersIcon size={16} />
                         </div>
                     </div>
-                    <div className="text-3xl font-bold" style={{ color: "hsl(var(--dash-text))" }}>{employeeCount}</div>
-                    <p className="text-xs mt-1" style={{ color: "hsl(var(--dash-text-muted))" }}>Active members</p>
+                    <div className="text-3xl font-bold" style={{ color: "hsl(var(--dash-text))" }}>{managerCount + staffCount}</div>
+                    <p className="text-xs mt-1" style={{ color: "hsl(var(--dash-text-muted))" }}>{managerCount} Managers · {staffCount} Staff</p>
                 </div>
             </div>
 
@@ -202,8 +203,8 @@ export default function TeamPage() {
                                 <div className="flex items-center gap-2">
                                     <span className="text-sm font-semibold" style={{ color: "hsl(var(--dash-text))" }}>{member.name}</span>
                                     <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{
-                                        background: member.role === "ADMIN" ? "#CCFBF1" : "#DBEAFE",
-                                        color: member.role === "ADMIN" ? "#0D9488" : "#2563EB",
+                                        background: member.role === "ADMIN" ? "#CCFBF1" : member.role === "MANAGER" ? "#FEF3C7" : "#DBEAFE",
+                                        color: member.role === "ADMIN" ? "#0D9488" : member.role === "MANAGER" ? "#D97706" : "#2563EB",
                                     }}>{member.role}</span>
                                     {member.id === currentUserId && (
                                         <span className="text-[10px] font-medium px-1.5 py-0.5 rounded" style={{ background: "#F0FDF4", color: "#16A34A" }}>You</span>
@@ -241,7 +242,7 @@ export default function TeamPage() {
             {/* Permissions info */}
             <div className={`${cardStyle} px-5 py-4`} style={{ borderColor: "var(--dash-border)" }}>
                 <h3 className="text-sm font-semibold mb-3" style={{ color: "hsl(var(--dash-text))" }}>Role Permissions</h3>
-                <div className="grid grid-cols-2 gap-4 text-xs">
+                <div className="grid grid-cols-3 gap-4 text-xs">
                     <div>
                         <div className="flex items-center gap-2 mb-2">
                             <Shield size={14} style={{ color: "#0D9488" }} />
@@ -249,25 +250,33 @@ export default function TeamPage() {
                         </div>
                         <ul className="space-y-1" style={{ color: "hsl(var(--dash-text-muted))" }}>
                             <li>✓ Full dashboard access</li>
-                            <li>✓ Manage team members</li>
-                            <li>✓ Edit site content & blog</li>
-                            <li>✓ Manage bookings & settings</li>
-                            <li>✓ View all conversations & leads</li>
-                            <li>✓ Access analytics</li>
+                            <li>✓ Site CMS & Automation</li>
+                            <li>✓ Manage team & settings</li>
+                            <li>✓ All CRM access</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <div className="flex items-center gap-2 mb-2">
+                            <User size={14} style={{ color: "#D97706" }} />
+                            <span className="font-semibold" style={{ color: "#D97706" }}>Manager</span>
+                        </div>
+                        <ul className="space-y-1" style={{ color: "hsl(var(--dash-text-muted))" }}>
+                            <li>✓ Overview & CRM</li>
+                            <li>✓ Manage leads & bookings</li>
+                            <li>✓ Chat with clients</li>
+                            <li>✗ No CMS or Settings</li>
                         </ul>
                     </div>
                     <div>
                         <div className="flex items-center gap-2 mb-2">
                             <User size={14} style={{ color: "#2563EB" }} />
-                            <span className="font-semibold" style={{ color: "#2563EB" }}>Employee</span>
+                            <span className="font-semibold" style={{ color: "#2563EB" }}>Staff</span>
                         </div>
                         <ul className="space-y-1" style={{ color: "hsl(var(--dash-text-muted))" }}>
-                            <li>✓ View conversations (read-only)</li>
-                            <li>✓ View leads (read-only)</li>
-                            <li>✓ View assigned bookings</li>
-                            <li>✓ View analytics</li>
-                            <li>✗ Cannot manage team</li>
-                            <li>✗ Cannot edit site or settings</li>
+                            <li>✓ Conversations</li>
+                            <li>✓ Leads & Bookings</li>
+                            <li>✗ No Overview</li>
+                            <li>✗ No CMS or Settings</li>
                         </ul>
                     </div>
                 </div>
@@ -297,7 +306,8 @@ export default function TeamPage() {
                         <div>
                             <label className={labelStyle} style={{ color: "hsl(var(--dash-text-muted))" }}>Role *</label>
                             <select name="role" required className={inputStyle} style={{ borderColor: "var(--dash-border)", background: "var(--dash-bg)", color: "hsl(var(--dash-text))" }}>
-                                <option value="EMPLOYEE">Employee</option>
+                                <option value="STAFF">Staff</option>
+                                <option value="MANAGER">Manager</option>
                                 <option value="ADMIN" disabled={adminCount >= 3}>Admin {adminCount >= 3 ? "(limit reached)" : `(${adminCount}/3)`}</option>
                             </select>
                         </div>
@@ -332,7 +342,8 @@ export default function TeamPage() {
                         <div>
                             <label className={labelStyle} style={{ color: "hsl(var(--dash-text-muted))" }}>Role</label>
                             <select name="role" defaultValue={editMember.role} className={inputStyle} style={{ borderColor: "var(--dash-border)", background: "var(--dash-bg)", color: "hsl(var(--dash-text))" }}>
-                                <option value="EMPLOYEE">Employee</option>
+                                <option value="STAFF">Staff</option>
+                                <option value="MANAGER">Manager</option>
                                 <option value="ADMIN" disabled={editMember.role !== "ADMIN" && adminCount >= 3}>Admin {adminCount >= 3 && editMember.role !== "ADMIN" ? "(limit)" : ""}</option>
                             </select>
                         </div>
