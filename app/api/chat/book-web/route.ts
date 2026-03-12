@@ -102,16 +102,24 @@ export async function POST(req: Request) {
         // Send WhatsApp confirmation
         const waMsg = `Hi ${client.name}! 🎯 Your meeting with Trivern is confirmed.\n\n📅 *${dateFormatted}*\n⏰ Duration: 20 minutes\n🔗 Google Meet: ${meetLink}\n\nYou'll get reminders before the meeting. Come ready with your biggest challenge — we're excited to connect! 🚀`;
 
+        console.log(`[chat/book-web] Sending WhatsApp to: "${phone}" (raw input: "${rawPhone}")`);
         const waResult = await sendWhatsAppMessage(phone, waMsg);
         if (!waResult.success) {
-            console.warn("[chat/book-web] WhatsApp notification failed:", waResult.error);
+            console.warn("[chat/book-web] WhatsApp notification FAILED:", waResult.error);
+        } else {
+            console.log("[chat/book-web] WhatsApp sent successfully to:", phone);
         }
+
+        // Only claim WhatsApp was sent if it actually succeeded
+        const whatsappLine = waResult.success
+            ? "\n\nI've sent the details to your WhatsApp too. See you then! 🚀"
+            : "\n\nSee you then! 🚀";
 
         return NextResponse.json({
             success: true,
             meetingId: meeting.id,
             whatsappSent: waResult.success,
-            confirmationText: `Your meeting is confirmed! 🎯\n\n📅 *${dateFormatted}*\n⏰ 20 minutes\n🔗 ${meetLink}\n\nI've sent the details to your WhatsApp too. See you then! 🚀`,
+            confirmationText: `Your meeting is confirmed! 🎯\n\n📅 *${dateFormatted}*\n⏰ 20 minutes\n🔗 ${meetLink}${whatsappLine}`,
         });
 
     } catch (error: any) {
