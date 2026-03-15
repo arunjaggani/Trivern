@@ -83,6 +83,8 @@ export async function sendWhatsAppTemplate(to: string, templateName: string, var
             return { success: false, error: data?.error?.message || "Unknown error" };
         }
 
+        console.log(`[whatsapp] Meta API Success Response:`, JSON.stringify(data));
+
         return { success: true };
     } catch (err: any) {
         console.error("[whatsapp] Network error:", err?.message || err);
