@@ -1,0 +1,82 @@
+{
+    "name": "WhatsApp Template Sender (Trivern)",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "send-trivern-template",
+                "responseMode": "lastNode",
+                "options": {}
+            },
+            "id": "1",
+            "name": "Webhook",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 1,
+            "position": [
+                180,
+                240
+            ],
+            "webhookId": "send-trivern-template"
+        },
+        {
+            "parameters": {
+                "operation": "sendTemplate",
+                "phoneNumberId": "={{ $json.body.phoneNumberId || 'YOUR_PHONE_NUMBER_ID' }}",
+                "recipientPhoneNumber": "={{ $json.body.phone }}",
+                "template": "={{ $json.body.templateName || 'trivetn_booking' }}",
+                "language": "en",
+                "componentsUi": {
+                    "componentValues": [
+                        {
+                            "type": "body",
+                            "parametersUi": {
+                                "parameterValues": [
+                                    {
+                                        "type": "text",
+                                        "text": "={{ $json.body.variables[0] }}"
+                                    },
+                                    {
+                                        "type": "text",
+                                        "text": "={{ $json.body.variables[1] }}"
+                                    },
+                                    {
+                                        "type": "text",
+                                        "text": "={{ $json.body.variables[2] }}"
+                                    }
+                                ]
+                            }
+                        }
+                    ]
+                }
+            },
+            "id": "2",
+            "name": "WhatsApp Template API",
+            "type": "n8n-nodes-base.whatsApp",
+            "typeVersion": 1,
+            "position": [
+                400,
+                240
+            ],
+            "credentials": {
+                "whatsAppApi": {
+                    "id": "whatsapp-cloud-api",
+                    "name": "WhatsApp account"
+                }
+            }
+        }
+    ],
+    "connections": {
+        "Webhook": {
+            "main": [
+                [
+                    {
+                        "node": "WhatsApp Template API",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {}
+}

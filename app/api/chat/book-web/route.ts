@@ -99,7 +99,7 @@ export async function POST(req: Request) {
             timeZone: "Asia/Kolkata",
         });
 
-        // Send WhatsApp confirmation via Template (bypasses 24hr rule)
+        // Send WhatsApp confirmation via N8N Webhook (User requested to use n8n instead)
         const templateName = process.env.WHATSAPP_CONFIRM_TEMPLATE || "trivetn_booking";
         const variables = [
             client.name,               // {{1}} Name
@@ -107,24 +107,40 @@ export async function POST(req: Request) {
             meetLink || "TBD"          // {{3}} Google Meet link
         ];
 
-        console.log(`[chat/book-web] Sending WhatsApp Template '${templateName}' to: "${phone}"`);
-        const waResult = await sendWhatsAppTemplate(phone, templateName, variables);
+        console.log(`[chat/book-web] Triggering N8N Webhook for WhatsApp Template '${templateName}' to: "${phone}"`);
+        let waSuccess = false;
+        try {
+            const webhookUrl = "http://localhost:5678/webhook/send-trivern-template"; // N8N Webhook URL
+            const n8nRes = await fetch(webhookUrl, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    phone,
+                    templateName,
+                    variables,
+                    phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID
+                }),
+            });
 
-        if (!waResult.success) {
-            console.warn("[chat/book-web] WhatsApp notification FAILED:", waResult.error);
-        } else {
-            console.log("[chat/book-web] WhatsApp Template sent successfully to:", phone);
+            if (!n8nRes.ok) {
+                console.warn("[chat/book-web] N8N Webhook trigger FAILED:", n8nRes.statusText);
+            } else {
+                console.log("[chat/book-web] N8N Webhook triggered successfully to:", phone);
+                waSuccess = true;
+            }
+        } catch (err: any) {
+            console.error("[chat/book-web] N8N Webhook Network error:", err?.message || err);
         }
 
         // Only claim WhatsApp was sent if it actually succeeded
-        const whatsappLine = waResult.success
+        const whatsappLine = waSuccess
             ? "\n\nI've sent the details to your WhatsApp too. See you then! 🚀"
             : "\n\nSee you then! 🚀";
 
         return NextResponse.json({
             success: true,
             meetingId: meeting.id,
-            whatsappSent: waResult.success,
+            whatsappSent: waSuccess,
             confirmationText: `Your meeting is confirmed! 🎯\n\n📅 *${dateFormatted}*\n⏰ 20 minutes\n🔗 ${meetLink}${whatsappLine}`,
         });
 
