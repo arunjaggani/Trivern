@@ -50,6 +50,33 @@ function extractReadyToBook(content: string): { lead: LeadData | null; cleanCont
     return { lead, cleanContent };
 }
 
+const renderMessage = (text: string) => {
+    if (!text) return null;
+    const linkRegex = /\[([^\]]+)\]\((https?:\/\/[^\s]+)\)/g;
+    const parts = [];
+    let lastIndex = 0;
+    let match;
+
+    while ((match = linkRegex.exec(text)) !== null) {
+        if (match.index > lastIndex) {
+            parts.push(text.substring(lastIndex, match.index));
+        }
+        const isWhatsapp = match[2].includes("wa.me");
+        parts.push(
+            <a key={match.index} href={match[2]} target="_blank" rel="noopener noreferrer"
+                className={isWhatsapp ? "zara-whatsapp-btn" : "zara-inline-link"}>
+                {isWhatsapp ? "📲 " + match[1] : match[1]}
+            </a>
+        );
+        lastIndex = match.index + match[0].length;
+    }
+    if (lastIndex < text.length) {
+        parts.push(text.substring(lastIndex));
+    }
+
+    return parts.length > 0 ? parts : text;
+};
+
 export default function ZaraChat() {
     const [open, setOpen] = useState(false);
     const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -318,6 +345,17 @@ export default function ZaraChat() {
                     box-shadow: 0 1px 1px rgba(0,0,0,0.06);
                     white-space: pre-wrap; word-wrap: break-word;
                 }
+                .zara-whatsapp-btn {
+                    display: inline-flex; align-items: center; gap: 6px;
+                    background: #25D366; color: white !important;
+                    padding: 8px 14px; border-radius: 8px;
+                    text-decoration: none; font-weight: 600; font-size: 13px;
+                    margin-top: 10px; margin-bottom: 4px;
+                    box-shadow: 0 2px 6px rgba(37, 211, 102, 0.3);
+                    transition: transform 0.2s;
+                }
+                .zara-whatsapp-btn:hover { transform: translateY(-1px); }
+                .zara-inline-link { color: #0D9488; text-decoration: underline; font-weight: 600; }
                 .zara-bubble.user { background: #DCF8C6; color: #0F172A; border-top-right-radius: 0; }
                 .zara-bubble.assistant { background: #FFFFFF; color: #0F172A; border-top-left-radius: 0; }
                 .zara-typing { display: flex; gap: 4px; padding: 12px 16px; background: #FFFFFF; border-radius: 8px; border-top-left-radius: 0; width: fit-content; box-shadow: 0 1px 1px rgba(0,0,0,0.06); }
@@ -415,7 +453,7 @@ export default function ZaraChat() {
                         {messages.map((msg, i) => (
                             <div key={i} className={`zara-msg ${msg.role}`}>
                                 <div className={`zara-bubble ${msg.role}`}>
-                                    {msg.content || (
+                                    {msg.content ? renderMessage(msg.content) : (
                                         <div className="zara-typing">
                                             <div className="zara-typing-dot" />
                                             <div className="zara-typing-dot" />
