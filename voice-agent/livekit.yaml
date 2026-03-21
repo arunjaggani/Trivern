@@ -1,0 +1,26 @@
+# LiveKit Server Configuration
+# Docs: https://docs.livekit.io/realtime/self-hosting/deployment/
+
+port: 7880
+rtc:
+  port_range_start: 50000
+  port_range_end: 50200
+  use_external_ip: true
+  tcp_port: 7881
+
+# Redis — required for multi-node, recommended for single-node
+redis:
+  address: redis:6379
+
+# API keys — must match .env values
+keys:
+  # Replace with your actual key pair
+  # Generate with: docker run --rm livekit/generate
+  LIVEKIT_API_KEY_PLACEHOLDER: LIVEKIT_API_SECRET_PLACEHOLDER
+
+logging:
+  level: info
+
+# SIP settings
+sip:
+  enabled: true

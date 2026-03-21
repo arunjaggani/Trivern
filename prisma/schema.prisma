@@ -64,6 +64,7 @@ model Client {
 
   meetings      Meeting[]
   conversations Conversation[]
+  voiceCalls    VoiceCall[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -147,4 +148,25 @@ model BlogPost {
   metaDesc    String?   // SEO
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+}
+
+// ─── Voice Calls ────────────────────────────────────
+
+model VoiceCall {
+  id              String   @id @default(cuid())
+  callerNumber    String
+  roomName        String?  // LiveKit room name
+  language        String   @default("en-IN")
+  duration        Int      @default(0)  // seconds
+  outcome         String   @default("unknown") // booked, whatsapp_followup, callback, no_answer, unknown
+  leadTemperature String   @default("warm") // hot, warm, lukewarm, cold
+  transcript      String?  @db.LongText // JSON array of {role, content, timestamp}
+  summary         String?
+  recordingUrl    String?
+  callType        String   @default("outbound") // outbound, inbound
+
+  clientId  String?
+  client    Client?  @relation(fields: [clientId], references: [id])
+
+  createdAt DateTime @default(now())
 }

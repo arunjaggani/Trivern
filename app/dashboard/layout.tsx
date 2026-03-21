@@ -38,6 +38,7 @@ import {
     Plug,
     Lock,
     Shield,
+    Phone,
 } from "lucide-react";
 
 // ─── Role Definitions ───────────────────────────────
@@ -79,6 +80,7 @@ const navSections: NavSection[] = [
             { href: "/dashboard/automation/calendar", label: "Calendar Sync", icon: CalendarCheck },
             { href: "/dashboard/automation/logs", label: "Automation Logs", icon: ScrollText },
             { href: "/dashboard/automation/emergency", label: "Emergency Controls", icon: ShieldAlert },
+            { href: "/dashboard/automation/voice", label: "Voice Agent", icon: Phone },
         ],
     },
     {

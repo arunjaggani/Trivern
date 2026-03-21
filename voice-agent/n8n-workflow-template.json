@@ -1,0 +1,556 @@
+{
+    "name": "Voice Agent — Trivern Template",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "new-lead",
+                "responseMode": "responseNode",
+                "options": {}
+            },
+            "id": "webhook-new-lead",
+            "name": "Webhook: New Lead",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 2,
+            "position": [
+                250,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// ─── City → Language Detection ─────────────────\n// Maps the form's city field to Sarvam AI language code\n\nconst city = ($input.first().json.city || '').toLowerCase().trim();\n\nconst CITY_LANGUAGE_MAP = {\n  // Telugu (te-IN)\n  'hyderabad': 'te-IN',\n  'secunderabad': 'te-IN',\n  'warangal': 'te-IN',\n  'vijayawada': 'te-IN',\n  'visakhapatnam': 'te-IN',\n  'vizag': 'te-IN',\n  'tirupati': 'te-IN',\n  'guntur': 'te-IN',\n  'nellore': 'te-IN',\n  'kurnool': 'te-IN',\n  'rajahmundry': 'te-IN',\n  'kakinada': 'te-IN',\n  'eluru': 'te-IN',\n  'karimnagar': 'te-IN',\n  'nizamabad': 'te-IN',\n  'khammam': 'te-IN',\n  'mahbubnagar': 'te-IN',\n  'rangareddy': 'te-IN',\n  'medak': 'te-IN',\n  'nalgonda': 'te-IN',\n\n  // Hindi (hi-IN)\n  'delhi': 'hi-IN',\n  'new delhi': 'hi-IN',\n  'mumbai': 'hi-IN',\n  'pune': 'hi-IN',\n  'jaipur': 'hi-IN',\n  'lucknow': 'hi-IN',\n  'kanpur': 'hi-IN',\n  'nagpur': 'hi-IN',\n  'indore': 'hi-IN',\n  'bhopal': 'hi-IN',\n  'patna': 'hi-IN',\n  'agra': 'hi-IN',\n  'varanasi': 'hi-IN',\n  'noida': 'hi-IN',\n  'gurgaon': 'hi-IN',\n  'gurugram': 'hi-IN',\n  'ahmedabad': 'hi-IN',\n  'surat': 'hi-IN',\n  'chandigarh': 'hi-IN',\n  'dehradun': 'hi-IN',\n  'faridabad': 'hi-IN',\n  'ghaziabad': 'hi-IN',\n  'ranchi': 'hi-IN',\n\n  // English (en-IN) — default for cosmopolitan cities\n  'bangalore': 'en-IN',\n  'bengaluru': 'en-IN',\n  'goa': 'en-IN',\n  'pondicherry': 'en-IN',\n  'puducherry': 'en-IN',\n};\n\nconst language = CITY_LANGUAGE_MAP[city] || 'en-IN';\n\nreturn [{\n  json: {\n    ...($input.first().json),\n    language: language,\n    detectedCity: city,\n  }\n}];"
+            },
+            "id": "detect-language",
+            "name": "Detect Language from City",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                470,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "={{ $env.TRIVERN_API_URL }}/api/n8n/lead-capture",
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "name",
+                            "value": "={{ $json.name }}"
+                        },
+                        {
+                            "name": "phone",
+                            "value": "={{ $json.phone }}"
+                        },
+                        {
+                            "name": "company",
+                            "value": "={{ $json.company || '' }}"
+                        },
+                        {
+                            "name": "source",
+                            "value": "Website"
+                        },
+                        {
+                            "name": "context",
+                            "value": "Inbound lead from landing page form"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "save-lead",
+            "name": "Save Lead to CRM",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                700,
+                200
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "http://voice-outbound:8089/api/call",
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "phone",
+                            "value": "={{ $json.phone }}"
+                        },
+                        {
+                            "name": "name",
+                            "value": "={{ $json.name }}"
+                        },
+                        {
+                            "name": "language",
+                            "value": "={{ $json.language }}"
+                        }
+                    ]
+                },
+                "options": {
+                    "timeout": 10000
+                }
+            },
+            "id": "trigger-outbound-call",
+            "name": "Trigger Voice Agent Call",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                700,
+                400
+            ]
+        },
+        {
+            "parameters": {
+                "respondWith": "json",
+                "responseBody": "={{ JSON.stringify({ success: true, message: 'Lead saved and outbound call triggered' }) }}"
+            },
+            "id": "respond-success",
+            "name": "Respond Success",
+            "type": "n8n-nodes-base.respondToWebhook",
+            "typeVersion": 1.1,
+            "position": [
+                950,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "voice-get-slots",
+                "responseMode": "responseNode",
+                "options": {}
+            },
+            "id": "webhook-get-slots",
+            "name": "Webhook: Get Slots",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 2,
+            "position": [
+                250,
+                600
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "={{ $env.TRIVERN_API_URL }}/api/n8n/available-slots",
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "phone",
+                            "value": "={{ $json.phone }}"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "fetch-slots",
+            "name": "Fetch Available Slots",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                500,
+                600
+            ]
+        },
+        {
+            "parameters": {
+                "respondWith": "json",
+                "responseBody": "={{ JSON.stringify($json) }}"
+            },
+            "id": "respond-slots",
+            "name": "Respond Slots",
+            "type": "n8n-nodes-base.respondToWebhook",
+            "typeVersion": 1.1,
+            "position": [
+                750,
+                600
+            ]
+        },
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "voice-book-meeting",
+                "responseMode": "responseNode",
+                "options": {}
+            },
+            "id": "webhook-book-meeting",
+            "name": "Webhook: Book Meeting",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 2,
+            "position": [
+                250,
+                850
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "={{ $env.TRIVERN_API_URL }}/api/n8n/book-meeting",
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "phone",
+                            "value": "={{ $json.phone }}"
+                        },
+                        {
+                            "name": "slotStart",
+                            "value": "={{ $json.slotStart }}"
+                        },
+                        {
+                            "name": "duration",
+                            "value": "={{ $json.duration || 20 }}"
+                        },
+                        {
+                            "name": "notes",
+                            "value": "={{ $json.notes || '' }}"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "book-meeting-api",
+            "name": "Book Meeting via API",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                500,
+                850
+            ]
+        },
+        {
+            "parameters": {
+                "respondWith": "json",
+                "responseBody": "={{ JSON.stringify($json) }}"
+            },
+            "id": "respond-booking",
+            "name": "Respond Booking",
+            "type": "n8n-nodes-base.respondToWebhook",
+            "typeVersion": 1.1,
+            "position": [
+                750,
+                850
+            ]
+        },
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "voice-save-lead",
+                "responseMode": "responseNode",
+                "options": {}
+            },
+            "id": "webhook-save-lead",
+            "name": "Webhook: Save Lead (Voice)",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 2,
+            "position": [
+                250,
+                1100
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "={{ $env.TRIVERN_API_URL }}/api/n8n/lead-capture",
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "name",
+                            "value": "={{ $json.name }}"
+                        },
+                        {
+                            "name": "phone",
+                            "value": "={{ $json.phone }}"
+                        },
+                        {
+                            "name": "company",
+                            "value": "={{ $json.company || '' }}"
+                        },
+                        {
+                            "name": "service",
+                            "value": "={{ $json.service || '' }}"
+                        },
+                        {
+                            "name": "context",
+                            "value": "={{ $json.context || '' }}"
+                        },
+                        {
+                            "name": "urgency",
+                            "value": "={{ $json.urgency || 'MEDIUM' }}"
+                        },
+                        {
+                            "name": "source",
+                            "value": "Voice"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "save-voice-lead",
+            "name": "Save Voice Lead",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                500,
+                1100
+            ]
+        },
+        {
+            "parameters": {
+                "respondWith": "json",
+                "responseBody": "={{ JSON.stringify({ success: true }) }}"
+            },
+            "id": "respond-save-lead",
+            "name": "Respond Save Lead",
+            "type": "n8n-nodes-base.respondToWebhook",
+            "typeVersion": 1.1,
+            "position": [
+                750,
+                1100
+            ]
+        },
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "voice-call-complete",
+                "responseMode": "responseNode",
+                "options": {}
+            },
+            "id": "webhook-call-complete",
+            "name": "Webhook: Call Complete",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 2,
+            "position": [
+                250,
+                1350
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// ─── Process Call Completion ────────────────────\n// Store call data and trigger WhatsApp confirmation if meeting was booked\n\nconst data = $input.first().json;\n\nreturn [{\n  json: {\n    room: data.room,\n    callerNumber: data.callerNumber,\n    language: data.language,\n    duration: data.duration,\n    outcome: data.outcome,\n    leadTemperature: data.leadTemperature,\n    transcript: JSON.stringify(data.transcript || []),\n    source: 'voice',\n    shouldSendWhatsApp: data.outcome === 'booked',\n  }\n}];"
+            },
+            "id": "process-call-data",
+            "name": "Process Call Data",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                500,
+                1350
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "={{ $env.TRIVERN_API_URL }}/api/n8n/save-conversation",
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "phone",
+                            "value": "={{ $json.callerNumber }}"
+                        },
+                        {
+                            "name": "summary",
+                            "value": "Voice call | Duration: {{ $json.duration }}s | Outcome: {{ $json.outcome }} | Lead: {{ $json.leadTemperature }}"
+                        },
+                        {
+                            "name": "transcript",
+                            "value": "={{ $json.transcript }}"
+                        },
+                        {
+                            "name": "source",
+                            "value": "voice"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "save-call-transcript",
+            "name": "Save Call Transcript",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                750,
+                1350
+            ]
+        },
+        {
+            "parameters": {
+                "respondWith": "json",
+                "responseBody": "={{ JSON.stringify({ success: true, saved: true }) }}"
+            },
+            "id": "respond-call-complete",
+            "name": "Respond Call Complete",
+            "type": "n8n-nodes-base.respondToWebhook",
+            "typeVersion": 1.1,
+            "position": [
+                1000,
+                1350
+            ]
+        }
+    ],
+    "connections": {
+        "Webhook: New Lead": {
+            "main": [
+                [
+                    {
+                        "node": "Detect Language from City",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Detect Language from City": {
+            "main": [
+                [
+                    {
+                        "node": "Save Lead to CRM",
+                        "type": "main",
+                        "index": 0
+                    },
+                    {
+                        "node": "Trigger Voice Agent Call",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Save Lead to CRM": {
+            "main": [
+                [
+                    {
+                        "node": "Respond Success",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Trigger Voice Agent Call": {
+            "main": [
+                [
+                    {
+                        "node": "Respond Success",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Webhook: Get Slots": {
+            "main": [
+                [
+                    {
+                        "node": "Fetch Available Slots",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Fetch Available Slots": {
+            "main": [
+                [
+                    {
+                        "node": "Respond Slots",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Webhook: Book Meeting": {
+            "main": [
+                [
+                    {
+                        "node": "Book Meeting via API",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Book Meeting via API": {
+            "main": [
+                [
+                    {
+                        "node": "Respond Booking",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Webhook: Save Lead (Voice)": {
+            "main": [
+                [
+                    {
+                        "node": "Save Voice Lead",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Save Voice Lead": {
+            "main": [
+                [
+                    {
+                        "node": "Respond Save Lead",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Webhook: Call Complete": {
+            "main": [
+                [
+                    {
+                        "node": "Process Call Data",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Process Call Data": {
+            "main": [
+                [
+                    {
+                        "node": "Save Call Transcript",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Save Call Transcript": {
+            "main": [
+                [
+                    {
+                        "node": "Respond Call Complete",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1"
+    },
+    "meta": {
+        "templateCredsSetupCompleted": true,
+        "instanceId": "trivern-voice-agent-template"
+    }
+}
