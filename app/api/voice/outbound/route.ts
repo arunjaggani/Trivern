@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
         // const n8nWebhookUrl = process.env.N8N_WEBHOOK_URL_NEW_LEAD || "http://169.254.0.1:5678/webhook/new-lead";
 
         // OR bypass N8N and hit the LiveKit Agent VPS Outbound API directly for testing:
-        const voiceApiUrl = process.env.VOICE_AGENT_OUTBOUND_URL || "http://169.254.0.1:8089/api/call";
+        const voiceApiUrl = process.env.VOICE_AGENT_OUTBOUND_URL || "http://127.0.0.1:8089/api/call";
 
         console.log(`[Outbound API] Triggering call to ${phone} via ${voiceApiUrl}`);
 

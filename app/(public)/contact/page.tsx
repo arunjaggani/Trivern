@@ -320,16 +320,29 @@ export default function ContactPage() {
                                     <p className="text-xs text-muted-foreground mt-1.5">Helps us connect you in the right language.</p>
                                 </div>
                                 <div>
-                                    <label className="text-sm text-muted-foreground block mb-2">How should we address you? <span className="text-accent">*</span></label>
-                                    <select
-                                        value={formData.gender}
-                                        onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
-                                        className={inputClass}
-                                    >
-                                        <option value="" disabled>Select...</option>
-                                        <option value="Male">Sir / Mr.</option>
-                                        <option value="Female">Ma'am / Ms.</option>
-                                    </select>
+                                    <label className="text-sm text-muted-foreground block mb-3">How should we address you? <span className="text-accent">*</span></label>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <button
+                                            type="button"
+                                            onClick={() => setFormData({ ...formData, gender: "Male" })}
+                                            className={`p-3 rounded-xl border text-sm font-medium transition-all duration-200 cursor-pointer ${formData.gender === "Male"
+                                                    ? "border-accent/40 bg-accent/[0.06] shadow-[0_0_0_1px_hsl(var(--accent)/0.15)] text-foreground"
+                                                    : "border-white/10 bg-white/5 text-muted-foreground hover:border-white/[0.15] hover:bg-white/[0.07]"
+                                                }`}
+                                        >
+                                            Sir / Mr.
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setFormData({ ...formData, gender: "Female" })}
+                                            className={`p-3 rounded-xl border text-sm font-medium transition-all duration-200 cursor-pointer ${formData.gender === "Female"
+                                                    ? "border-accent/40 bg-accent/[0.06] shadow-[0_0_0_1px_hsl(var(--accent)/0.15)] text-foreground"
+                                                    : "border-white/10 bg-white/5 text-muted-foreground hover:border-white/[0.15] hover:bg-white/[0.07]"
+                                                }`}
+                                        >
+                                            Ma'am / Ms.
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
 
@@ -391,7 +404,7 @@ export default function ContactPage() {
                                 type="button"
                                 onClick={handleCall}
                                 disabled={isSubmitting}
-                                className="w-full inline-flex items-center justify-center gap-2 px-6 py-4 rounded-2xl text-base font-semibold bg-white/5 text-foreground border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all duration-300 hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="w-full inline-flex items-center justify-center gap-2 px-6 py-4 rounded-2xl text-base font-semibold bg-gradient-to-b from-emerald-500/90 to-emerald-600/90 text-white border border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.15)] hover:shadow-[0_0_25px_rgba(16,185,129,0.25)] transition-all duration-300 hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 {isSubmitting ? (
                                     <>
