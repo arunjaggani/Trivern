@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { X, Send, MessageCircle, Bot, Sparkles, Calendar, CheckCircle } from "lucide-react";
+import { X, Send, MessageCircle, Bot, Sparkles, Calendar, CheckCircle, Phone } from "lucide-react";
 
 interface ChatMessage {
     role: "user" | "assistant";
@@ -280,6 +280,16 @@ export default function ZaraChat() {
                     0%, 100% { box-shadow: 0 4px 20px rgba(13,148,136,0.4), 0 0 0 0 rgba(13,148,136,0.3); }
                     50% { box-shadow: 0 4px 20px rgba(13,148,136,0.4), 0 0 0 12px rgba(13,148,136,0); }
                 }
+                .zara-fab-call {
+                    position: fixed; bottom: 94px; right: 24px; z-index: 9999;
+                    width: 50px; height: 50px; border-radius: 50%; border: none; cursor: pointer;
+                    display: grid; place-items: center; text-decoration: none;
+                    background: linear-gradient(135deg, #10B981, #059669);
+                    color: white;
+                    box-shadow: 0 4px 16px rgba(16, 185, 129, 0.4);
+                    transition: all 0.3s cubic-bezier(0.22,1,0.36,1);
+                }
+                .zara-fab-call:hover { transform: scale(1.1); box-shadow: 0 6px 24px rgba(16, 185, 129, 0.5); }
                 .zara-fab-label {
                     position: absolute; right: 72px; white-space: nowrap;
                     background: #0F172A; color: white; padding: 6px 14px;
@@ -428,10 +438,15 @@ export default function ZaraChat() {
             `}</style>
 
             {!open && (
-                <button className="zara-fab" onClick={handleOpen} aria-label="Chat with Zara">
-                    <div className="zara-fab-label">Chat with Zara ✨</div>
-                    <MessageCircle size={26} />
-                </button>
+                <>
+                    <a href="tel:+918065481234" className="zara-fab-call" aria-label="Call Zara" title="Call Us Directly">
+                        <Phone size={22} />
+                    </a>
+                    <button className="zara-fab" onClick={handleOpen} aria-label="Chat with Zara">
+                        <div className="zara-fab-label">Chat with Zara ✨</div>
+                        <MessageCircle size={26} />
+                    </button>
+                </>
             )}
 
             {open && (

@@ -17,6 +17,8 @@ export default function ContactPage() {
         phone: "+91 ",
         website: "",
         context: "",
+        city: "",
+        gender: "",
     });
 
     const submittedRef = useRef(false);
@@ -75,6 +77,8 @@ export default function ContactPage() {
         const message = [
             `Hi, this is ${name} from ${formData.company || "my company"}.`,
             `I'm interested in ${serviceName || "your services"}.`,
+            `City: ${formData.city}`,
+            `Gender: ${formData.gender}`,
             `Phone: ${phone}`,
             `Looking forward to discussing further.`,
         ].join("\n");
@@ -85,6 +89,66 @@ export default function ContactPage() {
         setTimeout(() => {
             window.open(waUrl, "_blank", "noopener,noreferrer");
         }, 400);
+    };
+
+    const handleCall = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setError("");
+
+        if (submittedRef.current) return;
+
+        const name = formData.name.trim();
+        const phone = formData.phone.replace(/[\s\-\(\)]/g, "");
+        const city = formData.city.trim();
+
+        if (!name) {
+            setError("Name is required.");
+            return;
+        }
+        if (!city) {
+            setError("City is required.");
+            return;
+        }
+        if (!formData.gender) {
+            setError("Please select how we should address you.");
+            return;
+        }
+        if (!phone || phone === "+91" || phone.length < 10) {
+            setError("A valid phone number is required.");
+            return;
+        }
+
+        submittedRef.current = true;
+        setIsSubmitting(true);
+
+        const serviceName = optionLabels[selectedOption] || selectedOption || "";
+
+        try {
+            // Send to our Next.js API which triggers N8N / Outbound call
+            const res = await fetch("/api/voice/outbound", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    name,
+                    phone,
+                    city,
+                    gender: formData.gender,
+                    service: serviceName,
+                    company: formData.company,
+                }),
+            });
+
+            if (res.ok) {
+                alert("Zara is calling you right now! Please expect a call in a few seconds.");
+            } else {
+                setError("Call failed to initiate. Please try WhatsApp instead.");
+                submittedRef.current = false;
+            }
+        } catch (err) {
+            setError("Network error. Please try WhatsApp.");
+            submittedRef.current = false;
+        }
+        setIsSubmitting(false);
     };
 
     const options = [
@@ -242,6 +306,33 @@ export default function ContactPage() {
                                 </div>
                             </div>
 
+                            {/* City & Gender */}
+                            <div className="grid sm:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="text-sm text-muted-foreground block mb-2">City <span className="text-accent">*</span></label>
+                                    <input
+                                        type="text"
+                                        value={formData.city}
+                                        onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                                        className={inputClass}
+                                        placeholder="E.g., Mumbai, Delhi, Hyderabad"
+                                    />
+                                    <p className="text-xs text-muted-foreground mt-1.5">Helps us connect you in the right language.</p>
+                                </div>
+                                <div>
+                                    <label className="text-sm text-muted-foreground block mb-2">How should we address you? <span className="text-accent">*</span></label>
+                                    <select
+                                        value={formData.gender}
+                                        onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
+                                        className={inputClass}
+                                    >
+                                        <option value="" disabled>Select...</option>
+                                        <option value="Male">Sir / Mr.</option>
+                                        <option value="Female">Ma'am / Ms.</option>
+                                    </select>
+                                </div>
+                            </div>
+
                             {/* Website */}
                             <div>
                                 <label className="text-sm text-muted-foreground block mb-2">Website (optional)</label>
@@ -286,6 +377,30 @@ export default function ContactPage() {
                                     <>
                                         💬 Continue on WhatsApp
                                         <MessageCircle className="w-4 h-4" />
+                                    </>
+                                )}
+                            </button>
+
+                            <div className="relative flex items-center py-2">
+                                <div className="flex-grow border-t border-white/10"></div>
+                                <span className="flex-shrink-0 mx-4 text-muted-foreground text-sm">or</span>
+                                <div className="flex-grow border-t border-white/10"></div>
+                            </div>
+
+                            <button
+                                type="button"
+                                onClick={handleCall}
+                                disabled={isSubmitting}
+                                className="w-full inline-flex items-center justify-center gap-2 px-6 py-4 rounded-2xl text-base font-semibold bg-white/5 text-foreground border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all duration-300 hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {isSubmitting ? (
+                                    <>
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                        Initiating Call…
+                                    </>
+                                ) : (
+                                    <>
+                                        📞 Get an Instant Call
                                     </>
                                 )}
                             </button>
