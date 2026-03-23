@@ -25,10 +25,13 @@ services:
     restart: unless-stopped
     depends_on:
       - livekit
+      - redis
     environment:
-      - LIVEKIT_URL=ws://livekit:7880
       - LIVEKIT_API_KEY=${LIVEKIT_API_KEY}
       - LIVEKIT_API_SECRET=${LIVEKIT_API_SECRET}
+    volumes:
+      - ./sip.yaml:/sip.yaml
+    command: --config /sip.yaml
     ports:
       - "5060:5060/udp" # SIP signaling
       - "5060:5060/tcp" # SIP signaling (TCP)
