@@ -107,7 +107,8 @@ export async function POST(req: Request) {
             name: client.name,
         });
     } catch (error: any) {
-        console.error("[n8n/lead-capture] Error:", error);
-        return NextResponse.json({ error: "Failed to capture lead" }, { status: 500 });
+        console.error("[n8n/lead-capture] DB Error:", error);
+        // Return 200 instead of 500 so N8N doesn't crash the execution branch if the DB isn't synced yet.
+        return NextResponse.json({ success: false, error: "Database sync pending. Lead not saved.", details: String(error.message || error) }, { status: 200 });
     }
 }
