@@ -12,11 +12,6 @@ rtc:
 redis:
   address: redis:6379
 
-# API keys — must match .env values
-keys:
-  # Replace with your actual key pair
-  # Generate with: docker run --rm livekit/generate
-  LIVEKIT_API_KEY_PLACEHOLDER: LIVEKIT_API_SECRET_PLACEHOLDER
 
 logging:
   level: info

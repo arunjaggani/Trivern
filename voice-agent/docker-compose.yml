@@ -13,6 +13,10 @@ services:
       - "50000-50200:50000-50200/udp" # WebRTC media (UDP)
     volumes:
       - ./livekit.yaml:/livekit.yaml
+    env_file:
+      - .env
+    environment:
+      - LIVEKIT_KEYS=${LIVEKIT_API_KEY}: ${LIVEKIT_API_SECRET}
     command: --config /livekit.yaml --node-ip=${HOST_IP:-0.0.0.0}
     networks:
       - voice-net
