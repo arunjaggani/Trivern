@@ -82,8 +82,12 @@ async def trigger_outbound_call(req: CallRequest):
         )
         logger.info(f"Room created: {room_name}")
 
-        # Step 2: Create outbound SIP participant (dials the phone)
-        sip_trunk_id = os.getenv("VOBIZ_SIP_TRUNK_ID", "")
+        # Step 2: Auto-fetch existing outbound SIP trunk (dials the phone)
+        trunks = await lk.sip.list_sip_outbound_trunk(livekit_api.ListSIPOutboundTrunkRequest())
+        if not trunks.items:
+            raise ValueError("No Vobiz SIP Trunk found natively on the LiveKit Server!")
+        
+        sip_trunk_id = trunks.items[0].sip_trunk_id
 
         await lk.sip.create_sip_participant(
             livekit_api.CreateSIPParticipantRequest(
