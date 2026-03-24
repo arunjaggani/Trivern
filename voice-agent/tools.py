@@ -113,11 +113,11 @@ async def save_conversation(
     return "Conversation saved." if result.get("success") else "Save failed."
 
 
-def create_tools() -> ToolContext:
+def create_tools() -> list:
     """Register all voice agent tools for GPT-4o Mini function calling."""
-    return ToolContext([
+    return [
         get_available_slots,
         book_meeting,
         save_lead,
         save_conversation
-    ])
+    ]
