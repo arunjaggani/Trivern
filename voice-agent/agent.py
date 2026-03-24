@@ -71,7 +71,7 @@ def create_tts(language: str = "en-IN"):
     voice = os.getenv("SARVAM_VOICE", "meera")
     return sarvam_plugin.TTS(
         model="bulbul:v3",
-        language=language,
+        target_language_code=language,
         speaker=voice,
     )
 
