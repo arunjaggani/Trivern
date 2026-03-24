@@ -89,6 +89,7 @@ async def trigger_outbound_call(req: CallRequest):
             livekit_api.CreateSIPParticipantRequest(
                 sip_trunk_id=sip_trunk_id,
                 sip_call_to=phone,
+                sip_call_from="918065481234",  # Vobiz strict Caller ID format
                 room_name=room_name,
                 participant_identity=f"caller-{phone}",
                 participant_name=req.name,
