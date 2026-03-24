@@ -82,12 +82,9 @@ async def trigger_outbound_call(req: CallRequest):
         )
         logger.info(f"Room created: {room_name}")
 
-        # Step 2: Create outbound SIP participant (dials the phone)
-        sip_trunk_id = os.getenv("VOBIZ_SIP_TRUNK_ID", "")
-
+        # Step 2: Create outbound SIP participant (LiveKit automatically matches the correct Outbound Trunk based on 'to' formatting)
         await lk.sip.create_sip_participant(
             livekit_api.CreateSIPParticipantRequest(
-                sip_trunk_id=sip_trunk_id,
                 sip_call_to=phone,
                 room_name=room_name,
                 participant_identity=f"caller-{phone}",
