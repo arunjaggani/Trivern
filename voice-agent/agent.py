@@ -100,7 +100,7 @@ class ZaraAssistant(Agent):
     async def on_enter(self):
         # ─── COMPLIANCE: First spoken line (non-negotiable) ─
         self.session.generate_reply(
-            instructions="Hi, just so you know — this call may be recorded for quality purposes.",
+            instructions="Hi, just so you know, this call may be recorded for quality purposes.",
             allow_interruptions=False,
         )
 
