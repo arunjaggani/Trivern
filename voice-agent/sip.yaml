@@ -1,3 +1,6 @@
 ws_url: "ws://livekit:7880"
 redis:
   address: "redis:6379"
+rtp_port:
+  start: 10000
+  end: 10200
