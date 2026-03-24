@@ -54,8 +54,8 @@ async def trigger_outbound_call(req: CallRequest):
     3. The agent.py entrypoint auto-connects to handle the call
     """
     try:
-        phone = normalize_phone(req.phone)
-        room_name = f"outbound-{phone.replace('+', '')}-{int(__import__('time').time())}"
+        phone = normalize_phone(req.phone).replace('+', '')
+        room_name = f"outbound-{phone}-{int(__import__('time').time())}"
 
         logger.info(f"Triggering outbound call: {phone} ({req.name}), lang={req.language}")
 
@@ -89,6 +89,7 @@ async def trigger_outbound_call(req: CallRequest):
             livekit_api.CreateSIPParticipantRequest(
                 sip_trunk_id=sip_trunk_id,
                 sip_call_to=phone,
+                sip_caller_id="918065481234",
                 room_name=room_name,
                 participant_identity=f"caller-{phone}",
                 participant_name=req.name,
