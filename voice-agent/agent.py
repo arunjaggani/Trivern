@@ -68,7 +68,7 @@ def create_tts(language: str = "en-IN"):
     Voice ID comes from SARVAM_VOICE env var.
     Language is passed dynamically per call.
     """
-    voice = os.getenv("SARVAM_VOICE", "meera")
+    voice = os.getenv("SARVAM_VOICE", "ritu")
     return sarvam_plugin.TTS(
         model="bulbul:v3",
         target_language_code=language,
