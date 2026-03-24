@@ -1,6 +1,6 @@
 """
-Trivern Voice Agent — Main LiveKit Agent
-========================================
+Trivern Voice Agent — Main LiveKit Agent (v1.5+ API)
+====================================================
 Listens for incoming SIP participants (inbound calls) and runs
 the STT → LLM → TTS pipeline using Sarvam AI + GPT-4o Mini.
 
@@ -16,14 +16,14 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 from livekit.agents import (
+    Agent,
+    AgentSession,
     AutoSubscribe,
     JobContext,
     JobProcess,
     WorkerOptions,
     cli,
-    llm,
 )
-from livekit.agents.pipeline import VoicePipelineAgent
 from livekit.plugins import openai as openai_plugin
 from livekit.plugins import sarvam as sarvam_plugin
 
@@ -82,6 +82,29 @@ def create_llm():
     return openai_plugin.LLM(model=model)
 
 
+class ZaraAssistant(Agent):
+    """The v1.5 API Wrapper for the Voice Agent"""
+    def __init__(self, language: str, system_prompt: str, tools):
+        stt = create_stt(language)
+        tts = create_tts(language)
+        llm_instance = create_llm()
+
+        super().__init__(
+            instructions=system_prompt,
+            stt=stt,
+            llm=llm_instance,
+            tts=tts,
+            tools=tools, # Pass customized tool functions automatically
+        )
+
+    async def on_enter(self):
+        # ─── COMPLIANCE: First spoken line (non-negotiable) ─
+        self.session.generate_reply(
+            instructions="Hi, just so you know — this call may be recorded for quality purposes.",
+            allow_interruptions=False,
+        )
+
+
 async def entrypoint(ctx: JobContext):
     """
     Called when a new participant joins a LiveKit room
@@ -90,8 +113,6 @@ async def entrypoint(ctx: JobContext):
     logger.info(f"New call session: room={ctx.room.name}")
 
     # ─── Extract language from room metadata ─────────
-    # Set by outbound.py (outbound calls) or SIP dispatch (inbound calls)
-    # Defaults to en-IN for inbound calls without metadata
     language = "en-IN"
     caller_name = "there"
 
@@ -105,35 +126,15 @@ async def entrypoint(ctx: JobContext):
 
     logger.info(f"Call config: language={language}, caller={caller_name}")
 
-    # ─── Load all components ─────────────────────────
+    # ─── Load components ──────────────────────────────
     system_prompt = load_system_prompt()
-    stt = create_stt(language)
-    tts = create_tts(language)
-    llm_instance = create_llm()
     tools = create_tools()
     call_log = CallLogger(room_name=ctx.room.name)
-
-    # ─── Build initial LLM context ────────────────────
-    initial_ctx = llm.ChatContext()
-    initial_ctx.append(role="system", text=system_prompt)
-
-    # ─── Create the voice pipeline agent ──────────────
-    agent = VoicePipelineAgent(
-        vad=None,  # Use default VAD (silero)
-        stt=stt,
-        llm=llm_instance,
-        tts=tts,
-        chat_ctx=initial_ctx,
-        fnc_ctx=tools,
-    )
 
     # ─── Connect and wait for caller ──────────────────
     await ctx.connect(auto_subscribe=AutoSubscribe.AUDIO_ONLY)
     participant = await ctx.wait_for_participant()
     logger.info(f"Participant connected: {participant.identity}")
-
-    # ─── Start the pipeline ───────────────────────────
-    agent.start(ctx.room, participant)
 
     # ─── Log call start ───────────────────────────────
     call_log.start(
@@ -141,13 +142,19 @@ async def entrypoint(ctx: JobContext):
         language=language,
     )
 
-    # ─── COMPLIANCE: First spoken line (non-negotiable) ─
-    await agent.say(
-        "Hi, just so you know — this call may be recorded for quality purposes.",
-        allow_interruptions=False,
+    # ─── Create the session via v1.5 API ──────────────
+    assistant = ZaraAssistant(language, system_prompt, tools)
+    session = AgentSession(
+        vad=None, # Uses silero default
     )
 
     logger.info("Voice agent pipeline running — awaiting call end.")
+
+    # ─── Start the pipeline ───────────────────────────
+    await session.start(
+        room=ctx.room,
+        agent=assistant,
+    )
 
 
 def prewarm(proc: JobProcess):

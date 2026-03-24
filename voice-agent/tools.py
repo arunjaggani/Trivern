@@ -14,9 +14,10 @@ Tools:
 
 import os
 import logging
+from typing import Annotated
 
 import aiohttp
-from livekit.agents import llm
+from livekit.agents.llm import function_tool, ToolContext
 
 logger = logging.getLogger("voice-tools")
 
@@ -46,79 +47,77 @@ async def _call_n8n(webhook_env_key: str, payload: dict) -> dict:
         return {"success": False, "message": str(e)}
 
 
-def create_tools() -> llm.FunctionContext:
+@function_tool(description="Get available meeting slots for booking. Call this when the client agrees to schedule a meeting.")
+async def get_available_slots(
+    phone: Annotated[str, "Client phone number"],
+) -> str:
+    result = await _call_n8n("N8N_WEBHOOK_GET_SLOTS", {"phone": phone})
+    if result.get("success") and result.get("slots"):
+        slots = result["slots"][:2]  # Always offer exactly 2
+        slot_text = " or ".join([s.get("formatted", s.get("start", "")) for s in slots])
+        return f"Available slots: {slot_text}"
+    return "No slots available right now. Suggest WhatsApp follow-up."
+
+
+@function_tool(description="Book a meeting after the client selects a slot. Returns confirmation with meet link.")
+async def book_meeting(
+    phone: Annotated[str, "Client phone number"],
+    slot_start: Annotated[str, "Selected slot ISO datetime"],
+    notes: Annotated[str, "One-line summary of their situation"],
+) -> str:
+    result = await _call_n8n("N8N_WEBHOOK_BOOK_MEETING", {
+        "phone": phone,
+        "slotStart": slot_start,
+        "duration": 20,
+        "notes": notes,
+    })
+    if result.get("success"):
+        return result.get("confirmationText", "Meeting booked successfully.")
+    return "Booking failed. Suggest trying again or WhatsApp follow-up."
+
+
+@function_tool(description="Save or update lead information in CRM. Call silently when you have name, phone, business, and pain point.")
+async def save_lead(
+    name: Annotated[str, "Client name"],
+    phone: Annotated[str, "Client phone number"],
+    company: Annotated[str, "Business/company name"],
+    service: Annotated[str, "Service they need"],
+    context: Annotated[str, "Their pain point or situation"],
+    urgency: Annotated[str, "LOW, MEDIUM, HIGH, or CRITICAL"],
+    business_type: Annotated[str, "Type: clinic, coach, consultant, etc."],
+    decision_role: Annotated[str, "Role: founder, owner, employee, assistant"],
+) -> str:
+    result = await _call_n8n("N8N_WEBHOOK_SAVE_LEAD", {
+        "name": name,
+        "phone": phone,
+        "company": company,
+        "service": service,
+        "context": context,
+        "urgency": urgency,
+        "businessType": business_type,
+        "decisionRole": decision_role,
+    })
+    return "Lead saved." if result.get("success") else "Lead save failed."
+
+
+@function_tool(description="Save the conversation transcript. Call every 5 exchanges or at the end of the call.")
+async def save_conversation(
+    phone: Annotated[str, "Client phone number"],
+    summary: Annotated[str, "Brief summary of the conversation"],
+) -> str:
+    result = await _call_n8n("N8N_WEBHOOK_CALL_COMPLETE", {
+        "phone": phone,
+        "summary": summary,
+        "source": "voice",
+    })
+    return "Conversation saved." if result.get("success") else "Save failed."
+
+
+def create_tools() -> ToolContext:
     """Register all voice agent tools for GPT-4o Mini function calling."""
-
-    fnc_ctx = llm.FunctionContext()
-
-    @fnc_ctx.ai_callable(
-        description="Get available meeting slots for booking. Call this when the client agrees to schedule a meeting.",
-    )
-    async def get_available_slots(
-        phone: str = llm.ai_callable.Arg(description="Client phone number"),
-    ) -> str:
-        result = await _call_n8n("N8N_WEBHOOK_GET_SLOTS", {"phone": phone})
-        if result.get("success") and result.get("slots"):
-            slots = result["slots"][:2]  # Always offer exactly 2
-            slot_text = " or ".join([s.get("formatted", s.get("start", "")) for s in slots])
-            return f"Available slots: {slot_text}"
-        return "No slots available right now. Suggest WhatsApp follow-up."
-
-    @fnc_ctx.ai_callable(
-        description="Book a meeting after the client selects a slot. Returns confirmation with meet link.",
-    )
-    async def book_meeting(
-        phone: str = llm.ai_callable.Arg(description="Client phone number"),
-        slot_start: str = llm.ai_callable.Arg(description="Selected slot ISO datetime"),
-        notes: str = llm.ai_callable.Arg(description="One-line summary of their situation"),
-    ) -> str:
-        result = await _call_n8n("N8N_WEBHOOK_BOOK_MEETING", {
-            "phone": phone,
-            "slotStart": slot_start,
-            "duration": 20,
-            "notes": notes,
-        })
-        if result.get("success"):
-            return result.get("confirmationText", "Meeting booked successfully.")
-        return "Booking failed. Suggest trying again or WhatsApp follow-up."
-
-    @fnc_ctx.ai_callable(
-        description="Save or update lead information in CRM. Call silently when you have name, phone, business, and pain point.",
-    )
-    async def save_lead(
-        name: str = llm.ai_callable.Arg(description="Client name"),
-        phone: str = llm.ai_callable.Arg(description="Client phone number"),
-        company: str = llm.ai_callable.Arg(description="Business/company name"),
-        service: str = llm.ai_callable.Arg(description="Service they need"),
-        context: str = llm.ai_callable.Arg(description="Their pain point or situation"),
-        urgency: str = llm.ai_callable.Arg(description="LOW, MEDIUM, HIGH, or CRITICAL"),
-        business_type: str = llm.ai_callable.Arg(description="Type: clinic, coach, consultant, etc."),
-        decision_role: str = llm.ai_callable.Arg(description="Role: founder, owner, employee, assistant"),
-    ) -> str:
-        result = await _call_n8n("N8N_WEBHOOK_SAVE_LEAD", {
-            "name": name,
-            "phone": phone,
-            "company": company,
-            "service": service,
-            "context": context,
-            "urgency": urgency,
-            "businessType": business_type,
-            "decisionRole": decision_role,
-        })
-        return "Lead saved." if result.get("success") else "Lead save failed."
-
-    @fnc_ctx.ai_callable(
-        description="Save the conversation transcript. Call every 5 exchanges or at the end of the call.",
-    )
-    async def save_conversation(
-        phone: str = llm.ai_callable.Arg(description="Client phone number"),
-        summary: str = llm.ai_callable.Arg(description="Brief summary of the conversation"),
-    ) -> str:
-        result = await _call_n8n("N8N_WEBHOOK_CALL_COMPLETE", {
-            "phone": phone,
-            "summary": summary,
-            "source": "voice",
-        })
-        return "Conversation saved." if result.get("success") else "Save failed."
-
-    return fnc_ctx
+    return ToolContext([
+        get_available_slots,
+        book_meeting,
+        save_lead,
+        save_conversation
+    ])
