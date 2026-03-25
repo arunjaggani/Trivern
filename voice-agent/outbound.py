@@ -79,19 +79,25 @@ async def _ensure_trunk(lk) -> str:
         logger.info(f"Using cached trunk: {_cached_trunk_id}")
         return _cached_trunk_id
 
-    # Try listing existing outbound trunks
+    # Try listing existing outbound trunks — only reuse ones WE created
     logger.info("Searching for existing outbound SIP trunk...")
     trunks = await lk.sip.list_sip_outbound_trunk(
         ListSIPOutboundTrunkRequest()
     )
 
-    if trunks.items:
-        _cached_trunk_id = trunks.items[0].sip_trunk_id
-        logger.info(
-            f"Found trunk: {_cached_trunk_id} "
-            f"(name={trunks.items[0].name})"
-        )
-        return _cached_trunk_id
+    for trunk in (trunks.items or []):
+        if trunk.name == "Vobiz Outbound":
+            _cached_trunk_id = trunk.sip_trunk_id
+            logger.info(
+                f"Found our trunk: {_cached_trunk_id} "
+                f"(address={trunk.address})"
+            )
+            return _cached_trunk_id
+        else:
+            logger.info(
+                f"Skipping old trunk {trunk.sip_trunk_id} "
+                f"(name={trunk.name!r}) — not created by us"
+            )
 
     # No trunk exists — auto-register from .env credentials
     logger.info("No trunk found. Auto-registering from .env...")
