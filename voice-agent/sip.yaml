@@ -1,6 +1,6 @@
-ws_url: "ws://livekit:7880"
+ws_url: "ws://127.0.0.1:7880"
 redis:
-  address: "redis:6379"
+  address: "127.0.0.1:6379"
 rtp_port:
   start: 10000
   end: 10200

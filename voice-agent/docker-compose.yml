@@ -36,12 +36,10 @@ services:
     volumes:
       - ./sip.yaml:/sip.yaml
     command: --config /sip.yaml
-    ports:
-      - "5060:5060/udp" # SIP signaling
-      - "5060:5060/tcp" # SIP signaling (TCP)
-      - "10000-10200:10000-10200/udp" # RTP Media (Audio)
-    networks:
-      - voice-net
+    # Host networking eliminates Docker NAT for SIP signaling.
+    # The SIP bridge binds directly to the VPS's real IP,
+    # so Vobiz responses are never dropped by NAT translation.
+    network_mode: host
 
   # ─── Redis (LiveKit dependency) ─────────────────────
   redis:
