@@ -79,6 +79,13 @@ async def _ensure_trunk(lk) -> str:
         logger.info(f"Using cached trunk: {_cached_trunk_id}")
         return _cached_trunk_id
 
+    # Priority 1: Use the known working trunk ID from .env
+    env_trunk_id = os.getenv("VOBIZ_SIP_TRUNK_ID", "").strip().strip('"')
+    if env_trunk_id:
+        _cached_trunk_id = env_trunk_id
+        logger.info(f"Using trunk from .env: {_cached_trunk_id}")
+        return _cached_trunk_id
+
     # Try listing existing outbound trunks
     logger.info("Searching for existing outbound SIP trunk...")
     trunks = await lk.sip.list_sip_outbound_trunk(
