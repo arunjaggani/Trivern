@@ -27,6 +27,7 @@ from livekit.plugins import silero
 
 from tools import create_tools
 from call_logger import CallLogger
+from sarvam_tts import CustomSarvamTTS
 
 load_dotenv()
 
@@ -113,13 +114,7 @@ async def entrypoint(ctx: JobContext):
 
     # ─── Create the Agent ──────────────────────────────
     logger.info("Initializing AgentSession...")
-    voice = os.getenv("SARVAM_VOICE", "anushka").lower()
-    
-    # bulbul:v2 strictly supports only these voices. It will crash otherwise.
-    valid_bulbul_v2_voices = ["anushka", "manisha", "vidya", "arya", "abhilash", "karun", "hitesh"]
-    if voice not in valid_bulbul_v2_voices:
-        logger.warning(f"Voice '{voice}' is incompatible with bulbul:v2. Defaulting to 'anushka'.")
-        voice = "anushka"
+    voice = os.getenv("SARVAM_VOICE", "ritu").lower()
 
     agent = Agent(
         instructions=bilingual_prompt,
@@ -132,7 +127,7 @@ async def entrypoint(ctx: JobContext):
         vad=silero.VAD.load(),
         stt=sarvam_plugin.STT(model="saaras:v3", language=language_code),
         llm=openai_plugin.LLM(model=os.getenv("OPENAI_MODEL", "gpt-4o-mini")),
-        tts=sarvam_plugin.TTS(model="bulbul:v2", target_language_code=language_code, speaker=voice),
+        tts=CustomSarvamTTS(model="bulbul:v3", target_language_code=language_code, speaker=voice),
     )
 
     await session.start(
