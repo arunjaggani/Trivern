@@ -1,11 +1,7 @@
 """
 Trivern Voice Agent — Main LiveKit Agent (v1.5+ API)
 ====================================================
-Listens for incoming SIP participants (inbound calls) and runs
-the STT → LLM → TTS pipeline using Sarvam AI + GPT-4o Mini.
-
-For outbound calls, see outbound.py which triggers calls via
-LiveKit's SIP API, which then route back here.
+Uses VoicePipelineAgent for complete STT → LLM → TTS routing.
 """
 
 import asyncio
@@ -16,14 +12,14 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 from livekit.agents import (
-    Agent,
-    AgentSession,
     AutoSubscribe,
     JobContext,
     JobProcess,
     WorkerOptions,
     cli,
 )
+from livekit.agents.llm import ChatContext, ChatMessage
+from livekit.agents.pipeline import VoicePipelineAgent
 from livekit.plugins import openai as openai_plugin
 from livekit.plugins import sarvam as sarvam_plugin
 from livekit.plugins import silero
@@ -49,40 +45,6 @@ def load_system_prompt() -> str:
     )
 
 
-def create_stt(language: str = "en-IN"):
-    """
-    Create Sarvam AI STT (saaras:v3) instance.
-    Language is passed dynamically per call — detected by N8N from form city field.
-    
-    Supported languages: en-IN, hi-IN, te-IN, ta-IN, kn-IN, ml-IN, bn-IN,
-    gu-IN, mr-IN, pa-IN, or-IN, as-IN, and more.
-    """
-    return sarvam_plugin.STT(
-        model="saaras:v3",
-        language=language,
-    )
-
-
-def create_tts(language: str = "en-IN"):
-    """
-    Create Sarvam AI TTS (bulbul:v3) instance.
-    Voice ID comes from SARVAM_VOICE env var.
-    Language is set dynamically to match the local language.
-    """
-    voice = os.getenv("SARVAM_VOICE", "ritu")
-    return sarvam_plugin.TTS(
-        model="bulbul:v3",
-        target_language_code=language,
-        speaker=voice,
-    )
-
-
-def create_llm():
-    """Create the OpenAI LLM (GPT-4o Mini)."""
-    model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
-    return openai_plugin.LLM(model=model)
-
-
 # Map of SARVAM language codes to human-readable languages
 LANGUAGE_MAP = {
     "en-IN": "English",
@@ -99,45 +61,6 @@ LANGUAGE_MAP = {
     "as-IN": "Assamese",
 }
 
-class ZaraAssistant(Agent):
-    """The v1.5 API Wrapper for the Voice Agent"""
-    def __init__(self, language: str, system_prompt: str, tools):
-        stt = create_stt(language)
-        tts = create_tts(language)
-        llm_instance = create_llm()
-
-        human_language = LANGUAGE_MAP.get(language, "English")
-        
-        # Inject strict language instructions so the LLM outputs text that TTS can synthesize
-        bilingual_prompt = (
-            f"{system_prompt}\n\n"
-            "--- IMPORTANT LANGUAGE INSTRUCTIONS ---\n"
-            f"The caller speaks: {human_language}.\n"
-            f"You MUST generate ALL your responses EXCLUSIVELY in {human_language}. "
-            "Do NOT output English unless asked to translate or the user explicitly switches entirely to English. "
-            "Your text will be sent to a speech synthesizer that ONLY understands the local language. "
-            "If you output English text while the user is expecting a local language, the voice engine will crash. "
-            f"If {human_language} does not use the Latin alphabet, output the text in the native script (e.g. Devanagari for Hindi, Telugu script for Telugu)."
-        )
-
-        super().__init__(
-            instructions=bilingual_prompt,
-            stt=stt,
-            llm=llm_instance,
-            tts=tts,
-            tools=tools,
-        )
-
-    async def on_enter(self):
-        """Called when agent enters the session — deliver compliance greeting."""
-        logger.info("on_enter triggered — generating compliance greeting")
-        reply = self.session.generate_reply(
-            instructions="Introduce yourself briefly and say that this call may be recorded for quality purposes. Say this in the EXACT language instructed in your system prompt.",
-            allow_interruptions=False,
-        )
-        if hasattr(reply, '__await__'):
-            await reply
-
 
 async def entrypoint(ctx: JobContext):
     """
@@ -147,49 +70,89 @@ async def entrypoint(ctx: JobContext):
     logger.info(f"New call session: room={ctx.room.name}")
 
     # ─── Extract language from room metadata ─────────
-    language = "en-IN"
+    language_code = "en-IN"
     caller_name = "there"
 
     if ctx.room.metadata:
         try:
             meta = json.loads(ctx.room.metadata)
-            language = meta.get("language", "en-IN")
+            language_code = meta.get("language", "en-IN")
             caller_name = meta.get("name", "there")
         except json.JSONDecodeError:
             pass
 
-    logger.info(f"Call config: language={language}, caller={caller_name}")
+    logger.info(f"Call config: language={language_code}, caller={caller_name}")
+    human_language = LANGUAGE_MAP.get(language_code, "English")
 
     # ─── Load components ──────────────────────────────
-    system_prompt = load_system_prompt()
+    system_prompt_base = load_system_prompt()
     tools = create_tools()
     call_log = CallLogger(room_name=ctx.room.name)
+
+    # Inject strict language instructions
+    bilingual_prompt = (
+        f"{system_prompt_base}\n\n"
+        "--- IMPORTANT LANGUAGE INSTRUCTIONS ---\n"
+        f"The caller speaks: {human_language}.\n"
+        f"You MUST generate ALL your responses EXCLUSIVELY in {human_language}. "
+        "Do NOT output English unless asked to translate. "
+        "Your text will be sent to a speech synthesizer that ONLY understands the local language. "
+        f"If {human_language} does not use the Latin alphabet, output the text in the native script (e.g. Devanagari for Hindi, Telugu script for Telugu)."
+    )
+
+    initial_ctx = ChatContext().append(
+        role="system",
+        text=bilingual_prompt,
+    )
 
     # ─── Connect and wait for caller ──────────────────
     await ctx.connect(auto_subscribe=AutoSubscribe.AUDIO_ONLY)
     participant = await ctx.wait_for_participant()
     logger.info(f"Participant connected: {participant.identity}")
 
-    # ─── Log call start ───────────────────────────────
     call_log.start(
         caller_number=participant.identity,
-        language=language,
+        language=language_code,
     )
 
-    # ─── Create and start the voice session ───────────
-    assistant = ZaraAssistant(language, system_prompt, tools)
-    session = AgentSession(
+    # ─── Tools & Pipeline Context ─────────────────────
+    fnc_ctx = None
+    if tools:
+        from livekit.agents.llm import FunctionContext
+        fnc_ctx = FunctionContext()
+        for tool in tools:
+            fnc_ctx.ai_callable(tool)
+
+    # ─── Create the Voice Pipeline Agent ──────────────
+    logger.info("Initializing VoicePipelineAgent...")
+    voice = os.getenv("SARVAM_VOICE", "ritu")
+    
+    agent = VoicePipelineAgent(
         vad=silero.VAD.load(),
+        stt=sarvam_plugin.STT(model="saaras:v3", language=language_code),
+        llm=openai_plugin.LLM(model=os.getenv("OPENAI_MODEL", "gpt-4o-mini")),
+        tts=sarvam_plugin.TTS(model="bulbul:v3", target_language_code=language_code, speaker=voice),
+        chat_ctx=initial_ctx,
+        fnc_ctx=fnc_ctx,
     )
 
-    logger.info("Starting AgentSession — Zara voice pipeline active")
+    agent.start(ctx.room)
+    logger.info("VoicePipelineAgent started.")
 
-    await session.start(
-        room=ctx.room,
-        agent=assistant,
-    )
-
-    logger.info("AgentSession started — awaiting call end")
+    # ─── Initial Greeting ─────────────────────────────
+    greeting = f"Introduce yourself briefly and say that this call may be recorded for quality purposes. Say this in the EXACT language instructed in your system prompt."
+    
+    # Generate the reply synchronously for this setup pattern
+    logger.info("Triggering initial greeting logic...")
+    # wait a brief moment for audio tracks to settle
+    await asyncio.sleep(1.0)
+    
+    # In livekit-agents 1.x, you can just use `say` if you want a direct text, or `chat_ctx.append` to trigger LLM.
+    # To trigger the LLM to generate the greeting based on the prompt:
+    agent.chat_ctx.append(role="user", text="Hello?")
+    # The VoicePipelineAgent automatically listens to the chat_ctx and STT.
+    
+    logger.info("Pipeline active — awaiting call end")
 
 
 def prewarm(proc: JobProcess):
