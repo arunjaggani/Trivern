@@ -66,16 +66,12 @@ def create_tts(language: str = "en-IN"):
     """
     Create Sarvam AI TTS (bulbul:v3) instance.
     Voice ID comes from SARVAM_VOICE env var.
-    
-    NOTE: target_language_code must match the TEXT language, not the
-    caller's language. Since GPT-4o-mini always generates English text,
-    we always use en-IN here. The STT uses the caller's language for
-    understanding their speech.
+    Language is set dynamically to match the local language.
     """
     voice = os.getenv("SARVAM_VOICE", "ritu")
     return sarvam_plugin.TTS(
         model="bulbul:v3",
-        target_language_code="en-IN",
+        target_language_code=language,
         speaker=voice,
     )
 
@@ -86,6 +82,22 @@ def create_llm():
     return openai_plugin.LLM(model=model)
 
 
+# Map of SARVAM language codes to human-readable languages
+LANGUAGE_MAP = {
+    "en-IN": "English",
+    "hi-IN": "Hindi",
+    "te-IN": "Telugu",
+    "ta-IN": "Tamil",
+    "kn-IN": "Kannada",
+    "ml-IN": "Malayalam",
+    "bn-IN": "Bengali",
+    "gu-IN": "Gujarati",
+    "mr-IN": "Marathi",
+    "pa-IN": "Punjabi",
+    "or-IN": "Odia",
+    "as-IN": "Assamese",
+}
+
 class ZaraAssistant(Agent):
     """The v1.5 API Wrapper for the Voice Agent"""
     def __init__(self, language: str, system_prompt: str, tools):
@@ -93,8 +105,22 @@ class ZaraAssistant(Agent):
         tts = create_tts(language)
         llm_instance = create_llm()
 
+        human_language = LANGUAGE_MAP.get(language, "English")
+        
+        # Inject strict language instructions so the LLM outputs text that TTS can synthesize
+        bilingual_prompt = (
+            f"{system_prompt}\n\n"
+            "--- IMPORTANT LANGUAGE INSTRUCTIONS ---\n"
+            f"The caller speaks: {human_language}.\n"
+            f"You MUST generate ALL your responses EXCLUSIVELY in {human_language}. "
+            "Do NOT output English unless asked to translate or the user explicitly switches entirely to English. "
+            "Your text will be sent to a speech synthesizer that ONLY understands the local language. "
+            "If you output English text while the user is expecting a local language, the voice engine will crash. "
+            f"If {human_language} does not use the Latin alphabet, output the text in the native script (e.g. Devanagari for Hindi, Telugu script for Telugu)."
+        )
+
         super().__init__(
-            instructions=system_prompt,
+            instructions=bilingual_prompt,
             stt=stt,
             llm=llm_instance,
             tts=tts,
@@ -105,7 +131,7 @@ class ZaraAssistant(Agent):
         """Called when agent enters the session — deliver compliance greeting."""
         logger.info("on_enter triggered — generating compliance greeting")
         self.session.generate_reply(
-            instructions="Hi, just so you know, this call may be recorded for quality purposes.",
+            instructions="Introduce yourself briefly and say that this call may be recorded for quality purposes. Say this in the EXACT language instructed in your system prompt.",
             allow_interruptions=False,
         )
 
