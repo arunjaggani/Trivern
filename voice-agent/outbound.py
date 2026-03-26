@@ -175,15 +175,25 @@ async def trigger_outbound_call(req: CallRequest):
 
             # Step 3: Dial the phone via Vobiz
             logger.info(f"Dialing {phone} via trunk {sip_trunk_id}")
+            
+            # Use dictionary unpacking to safely inject `wait_until_answered`
+            # if supported by the installed livekit-api protobuf schema.
+            # This prevents the AI agent from speaking while the phone is ringing.
+            request_args = {
+                "sip_trunk_id": sip_trunk_id,
+                "sip_call_to": phone,
+                "room_name": room_name,
+                "participant_identity": f"caller-{phone}",
+                "participant_name": req.name,
+                "krisp_enabled": True,
+            }
+            
+            import inspect
+            if "wait_until_answered" in inspect.signature(CreateSIPParticipantRequest).parameters:
+                request_args["wait_until_answered"] = True
+
             await lk.sip.create_sip_participant(
-                CreateSIPParticipantRequest(
-                    sip_trunk_id=sip_trunk_id,
-                    sip_call_to=phone,
-                    room_name=room_name,
-                    participant_identity=f"caller-{phone}",
-                    participant_name=req.name,
-                    krisp_enabled=True,
-                )
+                CreateSIPParticipantRequest(**request_args)
             )
             logger.info(f"Call initiated to {phone}")
 

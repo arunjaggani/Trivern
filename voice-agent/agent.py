@@ -117,35 +117,40 @@ async def entrypoint(ctx: JobContext):
 
     agent = Agent(
         instructions=bilingual_prompt,
-        stt=sarvam_plugin.STT(model="saaras:v3", language=language_code),
-        llm=openai_plugin.LLM(model=os.getenv("OPENAI_MODEL", "gpt-4o-mini")),
-        tts=sarvam_plugin.TTS(model="bulbul:v3", target_language_code=language_code, speaker=voice),
         tools=tools,
     )
     
+    from livekit.agents.voice.room_io import RoomInputOptions
+    
     session = AgentSession(
         vad=silero.VAD.load(),
+        stt=sarvam_plugin.STT(model="saaras:v3", language=language_code),
+        llm=openai_plugin.LLM(model=os.getenv("OPENAI_MODEL", "gpt-4o-mini")),
+        tts=sarvam_plugin.TTS(model="bulbul:v3", target_language_code=language_code, speaker=voice),
     )
 
     await session.start(
         room=ctx.room,
         agent=agent,
+        room_input_options=RoomInputOptions(
+            close_on_disconnect=True,
+        ),
     )
     
     logger.info("AgentSession started.")
 
     # ─── Initial Greeting ─────────────────────────────
-    # Trigger the greeting immediately after starting without waiting for 'on_enter'
+    # Wait briefly to ensure audio streams are fully connected
+    await asyncio.sleep(1.0)
     logger.info("Triggering initial greeting logic...")
     
     # Generate the reply using the LLM directly so it strictly outputs in the user's native language.
-    reply = session.generate_reply(
-        instructions="Introduce yourself briefly and say that this call may be recorded for quality purposes. Say this in the EXACT language instructed in your system prompt.",
-        allow_interruptions=False,
-    )
-    # ensure any returned future is awaited (v1.x API syncs generation but sometimes returns an awaitable)
-    if hasattr(reply, '__await__'):
-        await reply
+    try:
+        await session.generate_reply(
+            instructions="Introduce yourself briefly and say that this call may be recorded for quality purposes. Say this in the EXACT language instructed in your system prompt.",
+        )
+    except Exception as e:
+        logger.error(f"Failed to generate greeting: {e}")
 
     logger.info("Pipeline active — awaiting call end")
 

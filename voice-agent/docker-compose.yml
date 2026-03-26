@@ -64,11 +64,13 @@ services:
       - redis
     env_file:
       - .env
+    environment:
+      # Use localhost because network_mode: host bypasses Docker DNS
+      - LIVEKIT_URL=ws://127.0.0.1:7880
     volumes:
       - ./system_prompt.md:/app/system_prompt.md:ro
-    command: python agent.py dev
-    networks:
-      - voice-net
+    command: python agent.py start
+    network_mode: host
 
   # ─── Outbound Call API (FastAPI) ─────────────────────
   # N8N calls POST /api/call here to trigger outbound calls
