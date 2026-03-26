@@ -48,7 +48,7 @@ class CustomSarvamTTS(tts.TTS):
         if not self._api_key:
             logger.error("SARVAM_API_KEY environment variable is not set!")
         
-    def synthesize(self, text: str) -> "tts.ChunkedStream":
+    def synthesize(self, text: str, **kwargs) -> "tts.ChunkedStream":
         return _SarvamStream(
             tts_ref=self,
             text=text,
