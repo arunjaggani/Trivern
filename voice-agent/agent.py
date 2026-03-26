@@ -126,7 +126,7 @@ async def entrypoint(ctx: JobContext):
         vad=silero.VAD.load(),
         stt=sarvam_plugin.STT(model="saaras:v3", language=language_code),
         llm=openai_plugin.LLM(model=os.getenv("OPENAI_MODEL", "gpt-4o-mini")),
-        tts=sarvam_plugin.TTS(model="bulbul:v3", target_language_code=language_code, speaker=voice),
+        tts=sarvam_plugin.TTS(model="bulbul:v2", target_language_code=language_code, speaker=voice),
     )
 
     await session.start(
