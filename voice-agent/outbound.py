@@ -68,10 +68,11 @@ async def _ensure_trunk(lk) -> str:
     """
     Ensure a Vobiz outbound SIP trunk exists on the LiveKit server.
 
-    - Returns cached trunk ID if available (fast path)
-    - Lists existing trunks and picks the first one if any exist
-    - If none exist (e.g. Redis was wiped), auto-creates one from .env
-    - Caches the result for the container's lifetime
+    Fully self-healing — no manual trunk ID management needed:
+    1. Returns cached trunk ID if available (fast path)
+    2. Lists existing trunks, finds one named "Vobiz Outbound"
+    3. If none exists (Redis wiped, fresh deploy), auto-creates from .env
+    4. Caches the result for the container's lifetime
     """
     global _cached_trunk_id
 
@@ -79,35 +80,20 @@ async def _ensure_trunk(lk) -> str:
         logger.info(f"Using cached trunk: {_cached_trunk_id}")
         return _cached_trunk_id
 
-    # Priority 1: Use the known working trunk ID from .env
-    env_trunk_id = os.getenv("VOBIZ_SIP_TRUNK_ID", "").strip().strip('"')
-    if env_trunk_id:
-        _cached_trunk_id = env_trunk_id
-        logger.info(f"Using trunk from .env: {_cached_trunk_id}")
-        return _cached_trunk_id
-
-    # Try listing existing outbound trunks
-    logger.info("Searching for existing outbound SIP trunk...")
+    # Auto-discover: find our trunk by name
+    logger.info("Searching for 'Vobiz Outbound' trunk...")
     trunks = await lk.sip.list_sip_outbound_trunk(
         ListSIPOutboundTrunkRequest()
     )
 
-    if trunks.items:
-        # Prefer a trunk we created, but accept any working trunk
-        chosen = None
-        for trunk in trunks.items:
-            if trunk.name == "Vobiz Outbound":
-                chosen = trunk
-                break
-        if not chosen:
-            chosen = trunks.items[0]  # Use the oldest existing trunk
-
-        _cached_trunk_id = chosen.sip_trunk_id
-        logger.info(
-            f"Using trunk: {_cached_trunk_id} "
-            f"(name={chosen.name!r}, address={chosen.address})"
-        )
-        return _cached_trunk_id
+    for trunk in (trunks.items or []):
+        if trunk.name == "Vobiz Outbound":
+            _cached_trunk_id = trunk.sip_trunk_id
+            logger.info(
+                f"Found trunk: {_cached_trunk_id} "
+                f"(address={trunk.address})"
+            )
+            return _cached_trunk_id
 
     # No trunk exists — auto-register from .env credentials
     logger.info("No trunk found. Auto-registering from .env...")
