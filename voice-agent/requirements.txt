@@ -6,6 +6,9 @@ livekit-api>=0.7.0
 # ─── Sarvam AI (official LiveKit plugin) ──────────────
 livekit-plugins-sarvam>=1.4.0
 
+# ─── Silero VAD (Voice Activity Detection) ────────────
+livekit-plugins-silero>=0.10.0
+
 # ─── Web server (outbound call trigger) ──────────────
 fastapi>=0.115.0
 uvicorn>=0.32.0
