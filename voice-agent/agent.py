@@ -113,7 +113,13 @@ async def entrypoint(ctx: JobContext):
 
     # ─── Create the Agent ──────────────────────────────
     logger.info("Initializing AgentSession...")
-    voice = os.getenv("SARVAM_VOICE", "ritu")
+    voice = os.getenv("SARVAM_VOICE", "anushka").lower()
+    
+    # bulbul:v2 strictly supports only these voices. It will crash otherwise.
+    valid_bulbul_v2_voices = ["anushka", "manisha", "vidya", "arya", "abhilash", "karun", "hitesh"]
+    if voice not in valid_bulbul_v2_voices:
+        logger.warning(f"Voice '{voice}' is incompatible with bulbul:v2. Defaulting to 'anushka'.")
+        voice = "anushka"
 
     agent = Agent(
         instructions=bilingual_prompt,
