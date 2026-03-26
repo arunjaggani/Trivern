@@ -66,12 +66,16 @@ def create_tts(language: str = "en-IN"):
     """
     Create Sarvam AI TTS (bulbul:v3) instance.
     Voice ID comes from SARVAM_VOICE env var.
-    Language is passed dynamically per call.
+    
+    NOTE: target_language_code must match the TEXT language, not the
+    caller's language. Since GPT-4o-mini always generates English text,
+    we always use en-IN here. The STT uses the caller's language for
+    understanding their speech.
     """
     voice = os.getenv("SARVAM_VOICE", "ritu")
     return sarvam_plugin.TTS(
         model="bulbul:v3",
-        target_language_code=language,
+        target_language_code="en-IN",
         speaker=voice,
     )
 
