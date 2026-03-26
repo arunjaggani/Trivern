@@ -158,6 +158,7 @@ async def entrypoint(ctx: JobContext):
     await session.start(
         room=ctx.room,
         agent=assistant,
+        participant=participant,
     )
 
 
