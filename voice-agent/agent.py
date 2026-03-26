@@ -1,7 +1,7 @@
 """
 Trivern Voice Agent — Main LiveKit Agent (v1.5+ API)
 ====================================================
-Uses VoicePipelineAgent for complete STT → LLM → TTS routing.
+Uses modern AgentSession API for STT → LLM → TTS routing.
 """
 
 import asyncio
@@ -12,14 +12,15 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 from livekit.agents import (
+    Agent,
+    AgentSession,
     AutoSubscribe,
     JobContext,
     JobProcess,
     WorkerOptions,
     cli,
 )
-from livekit.agents.llm import ChatContext, ChatMessage
-from livekit.agents.pipeline import VoicePipelineAgent
+from livekit.agents.llm import ChatContext
 from livekit.plugins import openai as openai_plugin
 from livekit.plugins import sarvam as sarvam_plugin
 from livekit.plugins import silero
@@ -100,11 +101,6 @@ async def entrypoint(ctx: JobContext):
         f"If {human_language} does not use the Latin alphabet, output the text in the native script (e.g. Devanagari for Hindi, Telugu script for Telugu)."
     )
 
-    initial_ctx = ChatContext().append(
-        role="system",
-        text=bilingual_prompt,
-    )
-
     # ─── Connect and wait for caller ──────────────────
     await ctx.connect(auto_subscribe=AutoSubscribe.AUDIO_ONLY)
     participant = await ctx.wait_for_participant()
@@ -115,43 +111,42 @@ async def entrypoint(ctx: JobContext):
         language=language_code,
     )
 
-    # ─── Tools & Pipeline Context ─────────────────────
-    fnc_ctx = None
-    if tools:
-        from livekit.agents.llm import FunctionContext
-        fnc_ctx = FunctionContext()
-        for tool in tools:
-            fnc_ctx.ai_callable(tool)
-
-    # ─── Create the Voice Pipeline Agent ──────────────
-    logger.info("Initializing VoicePipelineAgent...")
+    # ─── Create the Agent ──────────────────────────────
+    logger.info("Initializing AgentSession...")
     voice = os.getenv("SARVAM_VOICE", "ritu")
-    
-    agent = VoicePipelineAgent(
-        vad=silero.VAD.load(),
+
+    agent = Agent(
+        instructions=bilingual_prompt,
         stt=sarvam_plugin.STT(model="saaras:v3", language=language_code),
         llm=openai_plugin.LLM(model=os.getenv("OPENAI_MODEL", "gpt-4o-mini")),
         tts=sarvam_plugin.TTS(model="bulbul:v3", target_language_code=language_code, speaker=voice),
-        chat_ctx=initial_ctx,
-        fnc_ctx=fnc_ctx,
+        tools=tools,
+    )
+    
+    session = AgentSession(
+        vad=silero.VAD.load(),
     )
 
-    agent.start(ctx.room)
-    logger.info("VoicePipelineAgent started.")
+    await session.start(
+        room=ctx.room,
+        agent=agent,
+    )
+    
+    logger.info("AgentSession started.")
 
     # ─── Initial Greeting ─────────────────────────────
-    greeting = f"Introduce yourself briefly and say that this call may be recorded for quality purposes. Say this in the EXACT language instructed in your system prompt."
-    
-    # Generate the reply synchronously for this setup pattern
+    # Trigger the greeting immediately after starting without waiting for 'on_enter'
     logger.info("Triggering initial greeting logic...")
-    # wait a brief moment for audio tracks to settle
-    await asyncio.sleep(1.0)
     
-    # In livekit-agents 1.x, you can just use `say` if you want a direct text, or `chat_ctx.append` to trigger LLM.
-    # To trigger the LLM to generate the greeting based on the prompt:
-    agent.chat_ctx.append(role="user", text="Hello?")
-    # The VoicePipelineAgent automatically listens to the chat_ctx and STT.
-    
+    # Generate the reply using the LLM directly so it strictly outputs in the user's native language.
+    reply = session.generate_reply(
+        instructions="Introduce yourself briefly and say that this call may be recorded for quality purposes. Say this in the EXACT language instructed in your system prompt.",
+        allow_interruptions=False,
+    )
+    # ensure any returned future is awaited (v1.x API syncs generation but sometimes returns an awaitable)
+    if hasattr(reply, '__await__'):
+        await reply
+
     logger.info("Pipeline active — awaiting call end")
 
 
