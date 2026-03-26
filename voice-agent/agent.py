@@ -98,11 +98,12 @@ class ZaraAssistant(Agent):
             stt=stt,
             llm=llm_instance,
             tts=tts,
-            tools=tools, # Pass customized tool functions automatically
+            tools=tools,
         )
 
     async def on_enter(self):
-        # ─── COMPLIANCE: First spoken line (non-negotiable) ─
+        """Called when agent enters the session — deliver compliance greeting."""
+        logger.info("on_enter triggered — generating compliance greeting")
         self.session.generate_reply(
             instructions="Hi, just so you know, this call may be recorded for quality purposes.",
             allow_interruptions=False,
@@ -146,20 +147,20 @@ async def entrypoint(ctx: JobContext):
         language=language,
     )
 
-    # ─── Create the session via v1.5 API ──────────────
+    # ─── Create and start the voice session ───────────
     assistant = ZaraAssistant(language, system_prompt, tools)
     session = AgentSession(
-        vad=None, # Uses silero default
+        vad=None,
     )
 
-    logger.info("Voice agent pipeline running — awaiting call end.")
+    logger.info("Starting AgentSession — Zara voice pipeline active")
 
-    # ─── Start the pipeline ───────────────────────────
     await session.start(
         room=ctx.room,
         agent=assistant,
-        participant=participant,
     )
+
+    logger.info("AgentSession started — awaiting call end")
 
 
 def prewarm(proc: JobProcess):
@@ -174,3 +175,4 @@ if __name__ == "__main__":
             prewarm_fnc=prewarm,
         ),
     )
+
