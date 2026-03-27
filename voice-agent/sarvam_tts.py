@@ -85,6 +85,7 @@ class SarvamStream(tts.ChunkedStream):
                         container = av.open(buf)
                         resampler = av.AudioResampler(format="s16", layout="mono", rate=22050)
                         from livekit import rtc
+                        output_emitter.start()
                         frame_count = 0
                         for packet in container.demux(audio=0):
                             for frame in packet.decode():
