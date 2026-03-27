@@ -144,8 +144,6 @@ class SarvamStream(tts.ChunkedStream):
                     num_channels=1,
                     mime_type="audio/wav",   # Sarvam returns WAV (RIFF header)
                 )
-                output_emitter.start_segment(segment_id=uuid.uuid4().hex)
                 output_emitter.push(audio_bytes)  # push raw WAV bytes directly
-                output_emitter.end_segment()
                 # NOTE: end_input() is called by the framework after _run returns
                 logger.info("Pushed WAV audio to LiveKit — Zara speaking!")
