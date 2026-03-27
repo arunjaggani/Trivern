@@ -1,41 +1,22 @@
-"""
-Custom Sarvam TTS Plugin for LiveKit (REST API Wrapper)
-=======================================================
-The official `livekit-plugins-sarvam` websocket is currently crashing 
-on the new `bulbul:v3` model because Sarvam returns MP3 frames
-while LiveKit expects WAV frames.
-
-This custom plugin bypasses the websocket, hits the REST API directly,
-auto-detects the byte format (MP3 vs WAV), and natively pushes
-raw PCM frames back into the LiveKit pipeline.
-"""
-
 import os
-import json
 import base64
 import logging
+import asyncio
 import aiohttp
-
 from livekit.agents import tts
-from livekit.agents.utils import codecs
+from livekit.agents.types import APIConnectOptions
 
 logger = logging.getLogger("custom-sarvam-tts")
 
+SARVAM_TTS_URL = "https://api.sarvam.ai/text-to-speech"
 
 class CustomSarvamTTS(tts.TTS):
-    def __init__(
-        self,
-        *,
-        model: str = "bulbul:v3",
-        speaker: str = "anushka",
-        target_language_code: str = "hi-IN",
-        pace: float = 1.0,
-        enable_preprocessing: bool = True,
-        api_key: str | None = None,
-    ):
+    def __init__(self, *, model="bulbul:v2", speaker="meera",
+                 target_language_code="en-IN", pace=1.1,
+                 enable_preprocessing=True, api_key=None):
         super().__init__(
             capabilities=tts.TTSCapabilities(streaming=False),
-            sample_rate=24000, 
+            sample_rate=22050,
             num_channels=1,
         )
         self._model = model
@@ -43,84 +24,90 @@ class CustomSarvamTTS(tts.TTS):
         self._language = target_language_code
         self._pace = pace
         self._enable_preprocessing = enable_preprocessing
-        self._api_key = api_key or os.getenv("SARVAM_API_KEY")
-        
-        if not self._api_key:
-            logger.error("SARVAM_API_KEY environment variable is not set!")
-        
-    def synthesize(self, text: str, **kwargs) -> "tts.ChunkedStream":
-        return _SarvamStream(
-            tts_instance=self,
-            input_text=text,
-        )
+        self._api_key = api_key or os.getenv("SARVAM_API_KEY", "")
+        logger.info(f"CustomSarvamTTS ready: model={model}, lang={target_language_code}, speaker={speaker}")
+
+    def synthesize(self, text: str, *, conn_options: APIConnectOptions = None) -> "SarvamStream":
+        if conn_options is None:
+            conn_options = APIConnectOptions()
+        return SarvamStream(tts_instance=self, input_text=text, conn_options=conn_options)
 
 
-class _SarvamStream(tts.ChunkedStream):
-    def __init__(self, *, tts_instance: CustomSarvamTTS, input_text: str):
-        super().__init__(tts=tts_instance, input_text=input_text)
+class SarvamStream(tts.ChunkedStream):
+    def __init__(self, *, tts_instance: CustomSarvamTTS, input_text: str, conn_options: APIConnectOptions):
+        super().__init__(tts=tts_instance, input_text=input_text, conn_options=conn_options)
         self._tts = tts_instance
-        self._text = input_text
 
-    async def _run(self, output_emitter: tts.SynthesizedAudioEmitter) -> None:
-        if not self._text.strip():
+    async def _run(self, output_emitter: tts.AudioEmitter) -> None:
+        text = self._input_text
+        if not text or not text.strip():
             return
 
-        try:
-            url = "https://api.sarvam.ai/text-to-speech"
-            headers = {
-                "api-subscription-key": self._tts._api_key,
-                "Content-Type": "application/json"
-            }
-            payload = {
-                "inputs": [self._text],
-                "target_language_code": self._tts._language,
-                "speaker": self._tts._speaker,
-                "model": self._tts._model,
-                "pace": self._tts._pace,
-                "enable_preprocessing": self._tts._enable_preprocessing
-            }
+        payload = {
+            "inputs": [text],
+            "target_language_code": self._tts._language,
+            "speaker": self._tts._speaker,
+            "model": self._tts._model,
+            "pace": self._tts._pace,
+            "enable_preprocessing": self._tts._enable_preprocessing,
+            "speech_sample_rate": 22050,
+        }
+        headers = {
+            "api-subscription-key": self._tts._api_key,
+            "Content-Type": "application/json",
+        }
 
-            logger.info(f"CustomSarvamTTS requesting synthesis for {len(self._text)} chars...")
+        for attempt in range(3):
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(
+                        SARVAM_TTS_URL, json=payload, headers=headers,
+                        timeout=aiohttp.ClientTimeout(total=20)
+                    ) as resp:
+                        if resp.status != 200:
+                            err = await resp.text()
+                            logger.error(f"Sarvam API error {resp.status}: {err[:200]}")
+                            await asyncio.sleep(1.5 ** attempt)
+                            continue
 
-            async with aiohttp.ClientSession() as session:
-                async with session.post(url, json=payload, headers=headers) as resp:
-                    if resp.status != 200:
-                        err = await resp.text()
-                        logger.error(f"Sarvam REST API Failed: {err}")
-                        raise Exception(f"Sarvam TTS Error: {resp.status}")
-                        
-                    data = await resp.json()
-                    
-            audios = data.get("audios", [])
-            if not audios:
-                logger.warning("Sarvam returned empty audios array.")
-                return
-                
-            # Decode the base64 audio
-            b64_audio = audios[0]
-            audio_bytes = base64.b64decode(b64_audio)
+                        data = await resp.json()
+                        audios = data.get("audios", [])
+                        if not audios:
+                            logger.error("Sarvam returned empty audios[]")
+                            return
 
-            # Auto-detect audio wrapper (MP3 vs WAV)
-            is_mp3 = audio_bytes.startswith(b'\xff\xf3') or \
-                     audio_bytes.startswith(b'\xff\xfb') or \
-                     audio_bytes.startswith(b'ID3') or \
-                     audio_bytes.startswith(b'\xff\xf2')
-                     
-            logger.info(f"CustomSarvamTTS decoding {len(audio_bytes)} bytes (Format: {'MP3' if is_mp3 else 'WAV'})")
+                        audio_bytes = base64.b64decode(audios[0])
+                        logger.info(f"Sarvam returned {len(audio_bytes)} bytes, magic={audio_bytes[:4].hex()}")
 
-            if is_mp3:
-                decoder = codecs.Mp3StreamDecoder()
-            else:
-                decoder = codecs.WavStreamDecoder()
-                
-            # Push the entire file bytes to the decoder
-            frames = decoder.decode_chunk(audio_bytes)
-            for frame in frames:
-                # In v1.5 API we push frames directly to the emitter
-                output_emitter.push(frame)
-                
-            # Ensure the stream adapter knows we are done emitting frames
-            output_emitter.flush()
+                        import io
+                        import av
+                        buf = io.BytesIO(audio_bytes)
+                        container = av.open(buf)
+                        resampler = av.AudioResampler(format="s16", layout="mono", rate=22050)
+                        from livekit import rtc
+                        frame_count = 0
+                        for packet in container.demux(audio=0):
+                            for frame in packet.decode():
+                                for rf in resampler.resample(frame):
+                                    pcm = bytes(rf.planes[0])
+                                    lk_frame = rtc.AudioFrame(
+                                        data=pcm,
+                                        sample_rate=22050,
+                                        num_channels=1,
+                                        samples_per_channel=len(pcm) // 2,
+                                    )
+                                    output_emitter.push(lk_frame)
+                                    frame_count += 1
+                        container.close()
+                        output_emitter.flush()
+                        logger.info(f"Pushed {frame_count} PCM frames to LiveKit")
+                        return
 
-        except Exception as e:
-            logger.error(f"Failed to fetch/decode CustomSarvam audio: {e}", exc_info=e)
+            except asyncio.TimeoutError:
+                logger.warning(f"Sarvam timeout attempt {attempt+1}")
+                await asyncio.sleep(1.5 ** attempt)
+            except Exception as e:
+                logger.error(f"Sarvam TTS failed attempt {attempt+1}: {e}", exc_info=True)
+                await asyncio.sleep(1.5 ** attempt)
+
+        logger.error(f"All Sarvam TTS attempts failed for: {text[:60]}")
