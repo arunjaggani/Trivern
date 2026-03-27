@@ -50,18 +50,18 @@ class CustomSarvamTTS(tts.TTS):
         
     def synthesize(self, text: str, **kwargs) -> "tts.ChunkedStream":
         return _SarvamStream(
-            tts_ref=self,
-            text=text,
+            tts_instance=self,
+            input_text=text,
         )
 
 
 class _SarvamStream(tts.ChunkedStream):
-    def __init__(self, tts_ref: CustomSarvamTTS, text: str):
-        super().__init__()
-        self._tts = tts_ref
-        self._text = text
+    def __init__(self, *, tts_instance: CustomSarvamTTS, input_text: str):
+        super().__init__(tts=tts_instance, input_text=input_text)
+        self._tts = tts_instance
+        self._text = input_text
 
-    async def _main_task(self) -> None:
+    async def _run(self, output_emitter: tts.SynthesizedAudioEmitter) -> None:
         if not self._text.strip():
             return
 
@@ -101,7 +101,6 @@ class _SarvamStream(tts.ChunkedStream):
             audio_bytes = base64.b64decode(b64_audio)
 
             # Auto-detect audio wrapper (MP3 vs WAV)
-            # MP3 headers typically start with FF FB, FF F3, FF F2, or ID3
             is_mp3 = audio_bytes.startswith(b'\xff\xf3') or \
                      audio_bytes.startswith(b'\xff\xfb') or \
                      audio_bytes.startswith(b'ID3') or \
@@ -117,9 +116,11 @@ class _SarvamStream(tts.ChunkedStream):
             # Push the entire file bytes to the decoder
             frames = decoder.decode_chunk(audio_bytes)
             for frame in frames:
-                self._event_ch.send_nowait(
-                    tts.SynthesizedAudio(text=self._text, data=frame)
-                )
+                # In v1.5 API we push frames directly to the emitter
+                output_emitter.push(frame)
+                
+            # Ensure the stream adapter knows we are done emitting frames
+            output_emitter.flush()
 
         except Exception as e:
             logger.error(f"Failed to fetch/decode CustomSarvam audio: {e}", exc_info=e)
