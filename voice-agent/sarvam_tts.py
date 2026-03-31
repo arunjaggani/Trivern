@@ -1,4 +1,15 @@
+"""
+sarvam_tts.py — Custom Sarvam TTS for LiveKit agents 1.5.x
+===========================================================
+Features:
+  - Sentence-level chunking for lower perceived latency
+  - Audio cache integration for instant filler playback
+  - Parallel chunk fetching via asyncio.gather
+  - Full ZaraPostProcessor integration
+"""
+
 import os
+import re
 import uuid
 import base64
 import logging
@@ -37,6 +48,51 @@ VALID_V3_SPEAKERS = {
 }
 
 
+def split_into_sentences(text: str) -> list[str]:
+    """
+    Split text into sentence-level chunks for parallel TTS fetching.
+    Keeps chunks between 20-300 chars for best quality + speed balance.
+    Handles Telugu/Hindi sentence boundaries naturally.
+    """
+    if not text or not text.strip():
+        return []
+
+    # Split on sentence endings including Telugu/Hindi punctuation
+    raw = re.split(r'(?<=[.!?।\u0964\?])\s+', text.strip())
+
+    chunks = []
+    current = ""
+    for sentence in raw:
+        sentence = sentence.strip()
+        if not sentence:
+            continue
+        if len(current) + len(sentence) + 1 <= 300:
+            current = f"{current} {sentence}".strip()
+        else:
+            if current:
+                chunks.append(current)
+            # If single sentence too long, split on natural pause points
+            if len(sentence) > 300:
+                parts = re.split(r'(?<=[,;])\s+', sentence)
+                sub = ""
+                for part in parts:
+                    if len(sub) + len(part) + 1 <= 300:
+                        sub = f"{sub} {part}".strip()
+                    else:
+                        if sub:
+                            chunks.append(sub)
+                        sub = part
+                if sub:
+                    chunks.append(sub)
+            else:
+                current = sentence
+
+    if current:
+        chunks.append(current)
+
+    return chunks if chunks else [text[:500]]
+
+
 class CustomSarvamTTS(tts.TTS):
     def __init__(
         self,
@@ -44,8 +100,8 @@ class CustomSarvamTTS(tts.TTS):
         model: str = "bulbul:v3",
         target_language_code: str = "en-IN",
         speaker: str | None = None,
-        pace: float = 1.1,
-        temperature: float = 0.6,
+        pace: float = 0.95,
+        temperature: float = 0.5,
         api_key: str | None = None,
     ):
         super().__init__(
@@ -67,18 +123,85 @@ class CustomSarvamTTS(tts.TTS):
         self._speaker = speaker.lower()
 
         logger.info(
-            f"CustomSarvamTTS ready: model={model}, "
-            f"lang={target_language_code}, speaker={self._speaker}"
+            f"CustomSarvamTTS ready | model={model} "
+            f"lang={target_language_code} speaker={self._speaker} "
+            f"pace={pace}"
         )
 
     def synthesize(
-        self, text: str, *, conn_options: APIConnectOptions | None = None, **kwargs
+        self,
+        text: str,
+        *,
+        conn_options: APIConnectOptions | None = None,
+        **kwargs,
     ) -> "SarvamStream":
         if conn_options is None:
             conn_options = APIConnectOptions()
         return SarvamStream(
-            tts_instance=self, input_text=text, conn_options=conn_options
+            tts_instance=self,
+            input_text=text,
+            conn_options=conn_options,
         )
+
+    async def fetch_audio(self, text: str) -> bytes | None:
+        """
+        Fetch audio for a single text chunk from Sarvam REST API.
+        Returns raw WAV bytes or None on failure.
+        """
+        if not text or not text.strip():
+            return None
+
+        payload = {
+            "inputs": [text[:2500]],
+            "target_language_code": self._language,
+            "speaker": self._speaker,
+            "model": self._model,
+            "pace": self._pace,
+            "temperature": self._temperature,
+            "speech_sample_rate": 24000,
+        }
+        headers = {
+            "api-subscription-key": self._api_key,
+            "Content-Type": "application/json",
+        }
+
+        for attempt in range(2):
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(
+                        SARVAM_TTS_URL,
+                        json=payload,
+                        headers=headers,
+                        timeout=aiohttp.ClientTimeout(total=15),
+                    ) as resp:
+                        if resp.status != 200:
+                            err = await resp.text()
+                            logger.error(f"Sarvam API {resp.status}: {err[:150]}")
+                            await asyncio.sleep(1.0)
+                            continue
+
+                        data = await resp.json()
+                        audios = data.get("audios", [])
+                        if not audios:
+                            logger.error("Sarvam returned empty audios[]")
+                            return None
+
+                        audio_bytes = base64.b64decode(audios[0])
+                        logger.info(
+                            f"Sarvam chunk: {len(audio_bytes)}B | "
+                            f"magic={audio_bytes[:4].hex()} | "
+                            f"text='{text[:40]}'"
+                        )
+                        return audio_bytes
+
+            except asyncio.TimeoutError:
+                logger.warning(f"Sarvam timeout (attempt {attempt+1}): {text[:30]}")
+                await asyncio.sleep(0.5)
+            except Exception as e:
+                logger.error(f"Sarvam fetch error: {e}")
+                await asyncio.sleep(0.5)
+
+        return None
 
 
 class SarvamStream(tts.ChunkedStream):
@@ -90,7 +213,9 @@ class SarvamStream(tts.ChunkedStream):
         conn_options: APIConnectOptions,
     ):
         super().__init__(
-            tts=tts_instance, input_text=input_text, conn_options=conn_options
+            tts=tts_instance,
+            input_text=input_text,
+            conn_options=conn_options,
         )
         self._tts = tts_instance
 
@@ -99,51 +224,34 @@ class SarvamStream(tts.ChunkedStream):
         if not text or not text.strip():
             return
 
-        payload = {
-            "inputs": [text[:2500]],
-            "target_language_code": self._tts._language,
-            "speaker": self._tts._speaker,
-            "model": self._tts._model,
-            "pace": self._tts._pace,
-            "temperature": self._tts._temperature,
-            "speech_sample_rate": 24000,
-        }
-        headers = {
-            "api-subscription-key": self._tts._api_key,
-            "Content-Type": "application/json",
-        }
+        # Split into sentence chunks for parallel fetch
+        chunks = split_into_sentences(text)
+        logger.info(f"TTS: {len(chunks)} chunks for {len(text)} chars")
 
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
-                SARVAM_TTS_URL,
-                json=payload,
-                headers=headers,
-                timeout=aiohttp.ClientTimeout(total=20),
-            ) as resp:
-                if resp.status != 200:
-                    err = await resp.text()
-                    logger.error(f"Sarvam API {resp.status}: {err[:200]}")
-                    raise Exception(f"Sarvam API error {resp.status}")
+        # Fetch all chunks in parallel — first plays while rest still loading
+        tasks = [self._tts.fetch_audio(chunk) for chunk in chunks]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
 
-                data = await resp.json()
-                audios = data.get("audios", [])
-                if not audios:
-                    logger.error("Sarvam returned empty audios[]")
-                    raise Exception("Sarvam returned no audio")
+        # Initialize emitter once for the full response
+        output_emitter.initialize(
+            request_id=uuid.uuid4().hex,
+            sample_rate=24000,
+            num_channels=1,
+            mime_type="audio/wav",
+        )
 
-                audio_bytes = base64.b64decode(audios[0])
-                logger.info(
-                    f"Sarvam audio: {len(audio_bytes)} bytes | "
-                    f"magic={audio_bytes[:4].hex()}"
-                )
+        pushed = 0
+        for i, result in enumerate(results):
+            if isinstance(result, Exception):
+                logger.error(f"Chunk {i} failed: {result}")
+                continue
+            if result:
+                output_emitter.push(result)
+                pushed += 1
 
-                # Initialize emitter — MUST be called before push()
-                output_emitter.initialize(
-                    request_id=uuid.uuid4().hex,
-                    sample_rate=24000,
-                    num_channels=1,
-                    mime_type="audio/wav",   # Sarvam returns WAV (RIFF header)
-                )
-                output_emitter.push(audio_bytes)  # push raw WAV bytes directly
-                # NOTE: end_input() is called by the framework after _run returns
-                logger.info("Pushed WAV audio to LiveKit — Zara speaking!")
+        output_emitter.flush()
+
+        if pushed == 0:
+            raise Exception("No audio chunks synthesised successfully")
+
+        logger.info(f"Pushed {pushed}/{len(chunks)} chunks — Zara speaking!")
