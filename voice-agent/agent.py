@@ -29,6 +29,7 @@ from livekit.agents import (
     WorkerOptions,
     cli,
 )
+from livekit.agents.voice import AgentTurnHandlingOptions
 from livekit.plugins import openai as openai_plugin
 from livekit.plugins import sarvam as sarvam_plugin
 from livekit.plugins import silero
@@ -90,6 +91,36 @@ def detect_industry(business_info: str) -> str:
         if any(kw in business_lower for kw in keywords):
             return industry
     return "general"
+
+
+def detect_language_from_city(city_name: str, default_lang: str = "en-IN") -> str:
+    """
+    Enterprise routing: Maps user-provided city to native language.
+    Forces te-IN for AP/Telangana to ensure perfect Bulbul TTS accent.
+    """
+    if not city_name:
+        return default_lang
+
+    city_lower = city_name.lower().strip()
+
+    telugu_cities = {
+        "hyderabad", "secunderabad", "vizag", "visakhapatnam", "vijayawada",
+        "guntur", "warangal", "karimnagar", "khammam", "nizamabad",
+        "tirupati", "nellore", "kurnool", "rajahmundry", "kakinada",
+        "anantapur", "kadapa", "eluru", "ongole", "nandyal",
+    }
+
+    hindi_cities = {
+        "delhi", "mumbai", "pune", "lucknow", "patna", "jaipur",
+        "bhopal", "indore", "kanpur", "agra", "varanasi", "noida", "gurugram",
+    }
+
+    if any(tc in city_lower for tc in telugu_cities):
+        return "te-IN"
+    if any(hc in city_lower for hc in hindi_cities):
+        return "hi-IN"
+
+    return default_lang
 
 
 def load_system_prompt() -> str:
@@ -169,22 +200,28 @@ async def entrypoint(ctx: JobContext):
     logger.info(f"New call: room={ctx.room.name}")
 
     # ── Extract metadata ───────────────────────────────────────────────────────
-    language_code = "en-IN"
+    language_code = ""
     caller_name = "there"
     industry = "general"
     customer_context = None
+    city = ""
 
     if ctx.room.metadata:
         try:
             meta = json.loads(ctx.room.metadata)
-            language_code = meta.get("language", "en-IN")
+            language_code = meta.get("language", "")
             caller_name = meta.get("name", "there")
             industry = meta.get("industry", "general")
             customer_context = meta.get("customer_context", None)
+            city = meta.get("city", "")
         except (json.JSONDecodeError, AttributeError):
             pass
 
-    logger.info(f"Call config: language={language_code}, name={caller_name}, industry={industry}")
+    # Enforce city-based routing if n8n didn't explicitly pass a language code
+    if not language_code:
+        language_code = detect_language_from_city(city, default_lang="en-IN")
+
+    logger.info(f"Routed Call: {caller_name} from {city} -> Language: {language_code}")
     human_language = LANGUAGE_MAP.get(language_code, "English")
     speaker = LANGUAGE_SPEAKER_MAP.get(language_code, "ritu")
 
@@ -241,8 +278,10 @@ async def entrypoint(ctx: JobContext):
             api_key=os.getenv("SARVAM_API_KEY"),
         ),
         tts=tts_instance,
-        min_endpointing_delay=0.5,
-        max_endpointing_delay=6.0,
+        turn_handling=AgentTurnHandlingOptions(
+            patience=1.5,
+            interruption_clear_delay=0.5,
+        ),
     )
 
     await session.start(room=ctx.room, agent=agent)

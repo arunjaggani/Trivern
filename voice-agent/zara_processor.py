@@ -79,16 +79,12 @@ def pick_agreement(language: str) -> str:
 # ── Cost Guardrail — Length Truncation ────────────────────────────────────────
 
 def apply_length_truncation(text: str, max_chars: int = 250) -> str:
-    """
-    Hard physical limit on response length.
-    Prevents high Bulbul TTS billing from LLM over-generation.
-    Cuts at the last clean sentence boundary before the limit.
-    """
+    """Limits output length but ensures no words are cut in half."""
     if not text or len(text) <= max_chars:
         return text
 
     truncated = text[:max_chars]
-    # Find the last clean sentence boundary
+    # Try to find the last sentence boundary
     last_punct = max(
         truncated.rfind('.'),
         truncated.rfind('?'),
@@ -99,7 +95,12 @@ def apply_length_truncation(text: str, max_chars: int = 250) -> str:
     if last_punct > 0:
         result = text[:last_punct + 1]
     else:
-        result = truncated.strip() + "..."
+        # If no punctuation, cut at the last space to avoid cutting words
+        last_space = truncated.rfind(' ')
+        if last_space > 0:
+            result = truncated[:last_space] + "..."
+        else:
+            result = truncated + "..."
 
     logger.warning(
         f"Cost Guardrail: truncated {len(text)} → {len(result)} chars"
