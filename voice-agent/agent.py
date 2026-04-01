@@ -221,7 +221,15 @@ async def entrypoint(ctx: JobContext):
 
     # Enforce city-based routing if n8n didn't explicitly pass a language code
     if not language_code:
-        language_code = detect_language_from_city(city, default_lang="en-IN")
+        language_code = detect_language_from_city(city, default_lang="")
+
+    # Phone-based routing (ultimate failsafe if city was also blank)
+    if not language_code:
+        phone = participant.identity.replace("+91", "").replace(" ", "")
+        if phone.startswith(("40", "891", "866", "863", "878", "884")):
+            language_code = "te-IN"
+        else:
+            language_code = "en-IN"
 
     logger.info(f"Routed Call: {caller_name} from {city} -> Language: {language_code}")
     human_language = LANGUAGE_MAP.get(language_code, "English")
