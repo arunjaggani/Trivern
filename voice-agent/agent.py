@@ -15,6 +15,7 @@ import asyncio
 import json
 import logging
 import os
+import uuid
 from pathlib import Path
 
 import aiohttp
@@ -35,6 +36,7 @@ from livekit.plugins import sarvam as sarvam_plugin
 from livekit.plugins import silero
 
 from sarvam_tts import CustomSarvamTTS, LANGUAGE_SPEAKER_MAP
+from livekit.agents import tts
 from zara_processor import (
     process_llm_output,
     pick_thinking_filler,
@@ -286,6 +288,33 @@ async def entrypoint(ctx: JobContext):
 
     await session.start(room=ctx.room, agent=agent)
     logger.info("AgentSession started.")
+
+    # ── CRITICAL HOOK: Instant Latency Masking ─────────────────────────────────
+    @session.on("user_speech_committed")
+    def on_user_speech_committed(msg):
+        """Fires the millisecond the user stops talking. Plays instant filler."""
+        logger.info("VAD detected user stop. Triggering instant cache filler...")
+
+        filler_bytes = cache.get_thinking_filler(language_code)
+
+        if filler_bytes:
+            try:
+                temp_emitter = tts.AudioEmitter(
+                    session._audio_source,
+                    sample_rate=24000,
+                    num_channels=1,
+                )
+                temp_emitter.initialize(
+                    request_id=uuid.uuid4().hex,
+                    sample_rate=24000,
+                    num_channels=1,
+                    mime_type="audio/wav",
+                )
+                temp_emitter.push(filler_bytes)
+                temp_emitter.flush()
+                logger.info("Cached filler pushed (<50ms latency).")
+            except Exception as e:
+                logger.warning(f"Cache filler playback failed (non-fatal): {e}")
 
     # ── On-disconnect: post transcript to n8n ──────────────────────────────────
     async def _on_disconnect():

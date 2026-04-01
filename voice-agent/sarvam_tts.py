@@ -17,6 +17,7 @@ import asyncio
 import aiohttp
 from livekit.agents import tts
 from livekit.agents.types import APIConnectOptions
+from zara_processor import process_llm_output
 
 logger = logging.getLogger("custom-sarvam-tts")
 
@@ -220,13 +221,25 @@ class SarvamStream(tts.ChunkedStream):
         self._tts = tts_instance
 
     async def _run(self, output_emitter: tts.AudioEmitter) -> None:
-        text = self._input_text
+        raw_text = self._input_text
+        if not raw_text or not raw_text.strip():
+            return
+
+        # CRITICAL HOOK: Process text BEFORE sending to TTS API
+        # Applies Telugu script, zero-mix, fillers, truncation, prosody
+        text = process_llm_output(
+            text=raw_text,
+            language=self._tts._language,
+            caller_sentiment="NEUTRAL",
+            industry="general",
+        )
+
         if not text or not text.strip():
             return
 
-        # Split into sentence chunks for parallel fetch
+        # Split the REFINED text into sentence chunks
         chunks = split_into_sentences(text)
-        logger.info(f"TTS: {len(chunks)} chunks for {len(text)} chars")
+        logger.info(f"TTS: {len(chunks)} chunks for {len(text)} chars (raw={len(raw_text)})")
 
         # Fetch all chunks in parallel — first plays while rest still loading
         tasks = [self._tts.fetch_audio(chunk) for chunk in chunks]
