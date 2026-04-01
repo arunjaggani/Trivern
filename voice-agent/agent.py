@@ -17,6 +17,8 @@ import logging
 import os
 from pathlib import Path
 
+import aiohttp
+
 from dotenv import load_dotenv
 from livekit.agents import (
     Agent,
@@ -246,8 +248,70 @@ async def entrypoint(ctx: JobContext):
     await session.start(room=ctx.room, agent=agent)
     logger.info("AgentSession started.")
 
+    # ── On-disconnect: post transcript to n8n ──────────────────────────────────
+    async def _on_disconnect():
+        """Called when participant leaves — sends transcript to n8n."""
+        try:
+            transcript_lines = []
+            if hasattr(session, 'chat_ctx') and session.chat_ctx:
+                for msg in session.chat_ctx.messages:
+                    role = getattr(msg, 'role', 'unknown')
+                    content = getattr(msg, 'content', '')
+                    if content:
+                        transcript_lines.append(f"{role}: {content}")
+
+            transcript = "\n".join(transcript_lines)
+            webhook_url = os.getenv("N8N_WEBHOOK_CALL_COMPLETE", "")
+            if webhook_url and transcript:
+                n8n_base = os.getenv("N8N_BASE_URL", "http://host.docker.internal:5678")
+                full_url = f"{n8n_base}{webhook_url}"
+                payload = {
+                    "phone": participant.identity,
+                    "room": ctx.room.name,
+                    "language": language_code,
+                    "industry": industry,
+                    "transcript": transcript,
+                    "source": "voice",
+                }
+                async with aiohttp.ClientSession() as http:
+                    async with http.post(
+                        full_url, json=payload,
+                        timeout=aiohttp.ClientTimeout(total=10)
+                    ) as resp:
+                        logger.info(f"Transcript posted to n8n: {resp.status}")
+        except Exception as e:
+            logger.error(f"Disconnect hook failed: {e}", exc_info=True)
+
+    ctx.add_shutdown_callback(_on_disconnect)
+
+    # ── Compliance greeting — play from cache (instant) ────────────────────────
+    await asyncio.sleep(0.8)
+    compliance_audio = cache.get_compliance_greeting(language_code)
+    if compliance_audio:
+        logger.info("Playing compliance greeting from cache.")
+        # Push cached WAV bytes directly to the room audio track
+        try:
+            from livekit import rtc
+            source = rtc.AudioSource(sample_rate=24000, num_channels=1)
+            track = rtc.LocalAudioTrack.create_audio_track("compliance", source)
+            opts = rtc.TrackPublishOptions(source=rtc.TrackSource.SOURCE_MICROPHONE)
+            pub = await ctx.room.local_participant.publish_track(track, opts)
+            await source.capture_frame(rtc.AudioFrame(
+                data=compliance_audio,
+                sample_rate=24000,
+                num_channels=1,
+                samples_per_channel=len(compliance_audio) // 2,
+            ))
+            await asyncio.sleep(2.0)  # let it play
+            await ctx.room.local_participant.unpublish_track(pub.sid)
+            logger.info("Compliance greeting played.")
+        except Exception as e:
+            logger.warning(f"Compliance playback failed (non-fatal): {e}")
+    else:
+        logger.info("No cached compliance greeting — skipping.")
+
     # ── Greeting — industry-specific, personalised ─────────────────────────────
-    await asyncio.sleep(1.2)
+    await asyncio.sleep(0.5)
     logger.info("Generating greeting...")
 
     # Try industry-specific greeting first
@@ -271,7 +335,6 @@ async def entrypoint(ctx: JobContext):
     else:
         greeting_instruction = (
             f"Greet warmly. Say you are Zara from Trivern Solutions. "
-            f"Mention call may be recorded. "
             f"Ask: what kind of business do you run. "
             f"Respond ONLY in {human_language}. Max 2 sentences."
         )

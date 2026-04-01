@@ -19,6 +19,7 @@ logger = logging.getLogger("zara-cache")
 # Phrases to pre-synthesise per language
 CACHE_PHRASES = {
     "te-IN": {
+        "compliance":  "హాయ్... ఈ call quality కోసం record అవుతుందని చెప్పాలనుకున్నాను.",
         "thinking":    "Antey...",
         "thinking2":   "Okka nimishamanandi...",
         "checking":    "Okka nimishamanandi... system check chestunnanu andi.",
@@ -29,6 +30,7 @@ CACHE_PHRASES = {
         "no_worry":    "Chintha cheyakandi andi... nenu unnanu.",
     },
     "hi-IN": {
+        "compliance":  "Hi, just so you know — this call may be recorded for quality purposes.",
         "thinking":    "Ji... ek minute...",
         "thinking2":   "Dekhiye...",
         "checking":    "Ji... main abhi system mein dekh rahi hoon...",
@@ -39,6 +41,7 @@ CACHE_PHRASES = {
         "no_worry":    "Aap pareshan mat hoiye ji...",
     },
     "en-IN": {
+        "compliance":  "Hi, just so you know — this call may be recorded for quality purposes.",
         "thinking":    "Right...",
         "thinking2":   "So...",
         "checking":    "One moment, checking now...",
@@ -122,6 +125,10 @@ class ZaraAudioCache:
 
     def get_hold_phrase(self, language_code: str) -> Optional[bytes]:
         return self.get("hold", language_code)
+
+    def get_compliance_greeting(self, language_code: str) -> Optional[bytes]:
+        """Returns pre-warmed compliance greeting for instant playback."""
+        return self.get("compliance", language_code)
 
     @property
     def is_ready(self) -> bool:

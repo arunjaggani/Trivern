@@ -300,7 +300,7 @@
     }
   },
 
-  "phrase_variations": {
+  "randomizer_variations": {
     "description": "Stateless randomizer data — loaded dynamically by zara_processor.py. Add new variations here without touching Python code.",
     "te-IN": {
       "అర్థమైంది ఆండి": [
