@@ -30,7 +30,7 @@ from livekit.agents import (
     WorkerOptions,
     cli,
 )
-from livekit.agents.voice import AgentTurnHandlingOptions
+
 from livekit.plugins import openai as openai_plugin
 from livekit.plugins import sarvam as sarvam_plugin
 from livekit.plugins import silero
@@ -280,10 +280,8 @@ async def entrypoint(ctx: JobContext):
             api_key=os.getenv("SARVAM_API_KEY"),
         ),
         tts=tts_instance,
-        turn_handling=AgentTurnHandlingOptions(
-            patience=1.5,
-            interruption_clear_delay=0.5,
-        ),
+        min_endpointing_delay=0.5,
+        max_endpointing_delay=6.0,
     )
 
     await session.start(room=ctx.room, agent=agent)
