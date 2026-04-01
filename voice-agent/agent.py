@@ -201,7 +201,12 @@ def build_full_prompt(
 async def entrypoint(ctx: JobContext):
     logger.info(f"New call: room={ctx.room.name}")
 
-    # ── Extract metadata ───────────────────────────────────────────────────────
+    # ── 1. Connect FIRST — needed before we can read participant.identity ──────
+    await ctx.connect(auto_subscribe=AutoSubscribe.AUDIO_ONLY)
+    participant = await ctx.wait_for_participant()
+    logger.info(f"Participant connected: {participant.identity}")
+
+    # ── 2. Extract metadata ───────────────────────────────────────────────────
     language_code = ""
     caller_name = "there"
     industry = "general"
@@ -219,11 +224,11 @@ async def entrypoint(ctx: JobContext):
         except (json.JSONDecodeError, AttributeError):
             pass
 
-    # Enforce city-based routing if n8n didn't explicitly pass a language code
+    # ── 3. City-based routing if n8n didn't pass a language code ───────────────
     if not language_code:
         language_code = detect_language_from_city(city, default_lang="")
 
-    # Phone-based routing (ultimate failsafe if city was also blank)
+    # ── 4. Phone-based routing (ultimate failsafe) ─────────────────────────────
     if not language_code:
         phone = participant.identity.replace("+91", "").replace(" ", "")
         if phone.startswith(("40", "891", "866", "863", "878", "884")):
@@ -235,7 +240,7 @@ async def entrypoint(ctx: JobContext):
     human_language = LANGUAGE_MAP.get(language_code, "English")
     speaker = LANGUAGE_SPEAKER_MAP.get(language_code, "ritu")
 
-    # ── Build system prompt ────────────────────────────────────────────────────
+    # ── 5. Build system prompt ────────────────────────────────────────────────
     system_prompt_base = load_system_prompt()
     full_prompt = build_full_prompt(
         system_prompt=system_prompt_base,
@@ -246,12 +251,7 @@ async def entrypoint(ctx: JobContext):
         customer_context=customer_context,
     )
 
-    # ── Connect ────────────────────────────────────────────────────────────────
-    await ctx.connect(auto_subscribe=AutoSubscribe.AUDIO_ONLY)
-    participant = await ctx.wait_for_participant()
-    logger.info(f"Participant connected: {participant.identity}")
-
-    # ── Call logging ───────────────────────────────────────────────────────────
+    # ── 6. Call logging ───────────────────────────────────────────────────────
     call_log = CallLogger(room_name=ctx.room.name)
     call_log.start(caller_number=participant.identity, language=language_code)
 
