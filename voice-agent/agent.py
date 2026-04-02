@@ -16,6 +16,8 @@ import json
 import logging
 import os
 import uuid
+import pytz
+from datetime import datetime
 from pathlib import Path
 
 import aiohttp
@@ -208,21 +210,29 @@ async def entrypoint(ctx: JobContext):
 
     # ── 2. Extract metadata ───────────────────────────────────────────────────
     language_code = ""
-    caller_name = "there"
+    caller_name = "Sir/Madam"
     industry = "general"
     customer_context = None
     city = ""
+    business_name = "your business"
 
     if ctx.room.metadata:
         try:
             meta = json.loads(ctx.room.metadata)
             language_code = meta.get("language", "")
-            caller_name = meta.get("name", "there")
+            
+            caller_name = meta.get("name", "Sir/Madam").strip()
+            if not caller_name:
+                caller_name = "Sir/Madam"
+                
             industry = meta.get("industry", "general")
             customer_context = meta.get("customer_context", None)
-            city = meta.get("city", "")
+            city = meta.get("city", "").strip()
+            business_name = meta.get("business", "your business").strip()
         except (json.JSONDecodeError, AttributeError):
             pass
+
+    city_name = city if city else "your location"
 
     # ── 3. City-based routing if n8n didn't pass a language code ───────────────
     if not language_code:
@@ -242,6 +252,16 @@ async def entrypoint(ctx: JobContext):
 
     # ── 5. Build system prompt ────────────────────────────────────────────────
     system_prompt_base = load_system_prompt()
+
+    # INJECT REAL DATA TO PREVENT HALLUCINATIONS
+    system_prompt_base = system_prompt_base.replace("{caller_name}", caller_name)
+    system_prompt_base = system_prompt_base.replace("{business_name}", business_name)
+    system_prompt_base = system_prompt_base.replace("{city}", city_name)
+    
+    # INJECT TIME AWARENESS
+    ist_timezone = pytz.timezone('Asia/Kolkata')
+    current_time_ist = datetime.now(ist_timezone).strftime("%A, %B %d, %Y at %I:%M %p IST")
+    system_prompt_base = system_prompt_base.replace("{current_time_ist}", current_time_ist)
     full_prompt = build_full_prompt(
         system_prompt=system_prompt_base,
         language_code=language_code,
