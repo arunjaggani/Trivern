@@ -48,9 +48,15 @@ _cached_trunk_id: str | None = None
 
 
 class CallRequest(BaseModel):
-    phone: str        # e.g. "+919876543210" or "919876543210"
-    name: str         # Caller's name from form
-    language: str = "en-IN"  # Detected by N8N from city field
+    phone: str
+    name: str
+    language: str = "en-IN"
+    pronoun: str = ""
+    city: str = ""
+    business: str = ""
+    primary_goal: str = ""
+    situation: str = ""
+    whatsapp_number: str = ""
 
 
 def normalize_phone(phone: str) -> str:
@@ -165,6 +171,12 @@ async def trigger_outbound_call(req: CallRequest):
                         "language": req.language,
                         "phone": phone,
                         "type": "outbound",
+                        "pronoun": req.pronoun,
+                        "city": req.city,
+                        "business": req.business,
+                        "primary_goal": req.primary_goal,
+                        "situation": req.situation,
+                        "whatsapp_number": req.whatsapp_number,
                     }),
                 )
             )

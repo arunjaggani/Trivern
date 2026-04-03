@@ -40,16 +40,6 @@ from livekit.plugins import silero
 
 from sarvam_tts import CustomSarvamTTS, LANGUAGE_SPEAKER_MAP
 from livekit.agents import tts
-from zara_processor import (
-    process_llm_output,
-    pick_thinking_filler,
-    pick_tool_filler,
-    detect_emergency,
-    get_emergency_response,
-    detect_sentiment,
-    get_industry_phrase,
-)
-from zara_cache import get_cache
 from call_logger import CallLogger
 
 try:
@@ -297,11 +287,7 @@ async def entrypoint(ctx: JobContext):
         temperature=float(os.getenv("SARVAM_TTS_TEMP", "0.5")),
     )
 
-    # ── Prewarm audio cache ────────────────────────────────────────────────────
-    cache = get_cache()
-    if not cache.is_ready:
-        asyncio.create_task(cache.prewarm(tts_instance, language_code))
-        logger.info("Audio cache prewarm started (background).")
+
 
     # ── Build agent and session ────────────────────────────────────────────────
     logger.info("Initializing AgentSession...")
@@ -309,14 +295,7 @@ async def entrypoint(ctx: JobContext):
     tools = create_tools() if TOOLS_AVAILABLE else []
     agent = Agent(instructions=full_prompt, tools=tools)
 
-    # Load VAD with aggressive settings to cut dead air
-    vad = silero.VAD.load(
-        min_silence_duration=0.5, # Trigger LLM after just 500ms of silence
-        min_speech_duration=0.1
-    )
-
     session = AgentSession(
-        vad=vad,
         stt=sarvam_plugin.STT(
             model=os.getenv("SARVAM_STT_MODEL", "saaras:v3"),
             language=language_code,
@@ -332,32 +311,7 @@ async def entrypoint(ctx: JobContext):
     await session.start(room=ctx.room, agent=agent)
     logger.info("AgentSession started.")
 
-    # ── CRITICAL HOOK: Instant Latency Masking ─────────────────────────────────
-    @session.on("user_speech_committed")
-    def on_user_speech_committed(msg):
-        """Fires the millisecond the user stops talking. Plays instant filler."""
-        logger.info("VAD detected user stop. Triggering instant cache filler...")
 
-        filler_bytes = cache.get_thinking_filler(language_code)
-
-        if filler_bytes:
-            try:
-                temp_emitter = tts.AudioEmitter(
-                    session._audio_source,
-                    sample_rate=24000,
-                    num_channels=1,
-                )
-                temp_emitter.initialize(
-                    request_id=uuid.uuid4().hex,
-                    sample_rate=24000,
-                    num_channels=1,
-                    mime_type="audio/wav",
-                )
-                temp_emitter.push(filler_bytes)
-                temp_emitter.flush()
-                logger.info("Cached filler pushed (<50ms latency).")
-            except Exception as e:
-                logger.warning(f"Cache filler playback failed (non-fatal): {e}")
 
     # ── On-disconnect: post transcript to n8n ──────────────────────────────────
     async def _on_disconnect():
@@ -395,39 +349,6 @@ async def entrypoint(ctx: JobContext):
 
     ctx.add_shutdown_callback(_on_disconnect)
 
-    # ── Compliance greeting — play from cache (instant) ────────────────────────
-    await asyncio.sleep(0.8)
-    compliance_audio = cache.get_compliance_greeting(language_code)
-    if compliance_audio:
-        logger.info("Playing compliance greeting from cache.")
-        # Push cached WAV bytes directly to the room audio track
-        try:
-            from livekit import rtc
-            source = rtc.AudioSource(sample_rate=24000, num_channels=1)
-            track = rtc.LocalAudioTrack.create_audio_track("compliance", source)
-            opts = rtc.TrackPublishOptions(source=rtc.TrackSource.SOURCE_MICROPHONE)
-            pub = await ctx.room.local_participant.publish_track(track, opts)
-            await source.capture_frame(rtc.AudioFrame(
-                data=compliance_audio,
-                sample_rate=24000,
-                num_channels=1,
-                samples_per_channel=len(compliance_audio) // 2,
-            ))
-            await asyncio.sleep(2.0)  # let it play
-            await ctx.room.local_participant.unpublish_track(pub.sid)
-            logger.info("Compliance greeting played.")
-        except Exception as e:
-            logger.warning(f"Compliance playback failed (non-fatal): {e}")
-    else:
-        logger.info("No cached compliance greeting — skipping.")
-
-    # ── Greeting — industry-specific, personalised ─────────────────────────────
-    await asyncio.sleep(0.5)
-    logger.info("Generating greeting...")
-
-    # Try industry-specific greeting first
-    industry_greeting = get_industry_phrase(industry, language_code, "greeting")
-
     if caller_name and caller_name != "there" and customer_context:
         # Returning customer — personalised greeting
         greeting_instruction = (
@@ -436,12 +357,6 @@ async def entrypoint(ctx: JobContext):
             f"Use the context: {customer_context[:100]}. "
             f"Then ask a relevant follow-up question. "
             f"Respond ONLY in {human_language}. Max 2 sentences."
-        )
-    elif industry_greeting:
-        greeting_instruction = (
-            f"Use this as your opening: '{industry_greeting}'. "
-            f"Then ask: what brings them to Trivern today. "
-            f"Respond ONLY in {human_language}."
         )
     else:
         greeting_instruction = (
@@ -458,13 +373,10 @@ async def entrypoint(ctx: JobContext):
 
     logger.info("Pipeline active — awaiting conversation.")
 
-
 def prewarm(proc: JobProcess):
-    """Pre-warm VAD and system prompt at process startup."""
-    proc.userdata["vad"] = silero.VAD.load()
+    """Pre-warm system prompt at process startup."""
     proc.userdata["system_prompt"] = load_system_prompt()
     logger.info("Prewarm complete.")
-
 
 if __name__ == "__main__":
     cli.run_app(

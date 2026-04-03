@@ -17,7 +17,6 @@ import asyncio
 import aiohttp
 from livekit.agents import tts
 from livekit.agents.types import APIConnectOptions
-from zara_processor import process_llm_output
 
 logger = logging.getLogger("custom-sarvam-tts")
 
@@ -225,14 +224,8 @@ class SarvamStream(tts.ChunkedStream):
         if not raw_text or not raw_text.strip():
             return
 
-        # CRITICAL HOOK: Process text BEFORE sending to TTS API
-        # Applies Telugu script, zero-mix, fillers, truncation, prosody
-        text = process_llm_output(
-            text=raw_text,
-            language=self._tts._language,
-            caller_sentiment="NEUTRAL",
-            industry="general",
-        )
+        # Direct raw stream
+        text = raw_text
 
         if not text or not text.strip():
             return
