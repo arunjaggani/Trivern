@@ -87,7 +87,7 @@ async def _ensure_trunk(lk) -> str:
     )
 
     for trunk in (trunks.items or []):
-        if trunk.name == "Vobiz Outbound":
+        if trunk.name == "Trivern Voice Agent V2":
             _cached_trunk_id = trunk.sip_trunk_id
             logger.info(
                 f"Found trunk: {_cached_trunk_id} "
@@ -112,9 +112,9 @@ async def _ensure_trunk(lk) -> str:
     result = await lk.sip.create_sip_outbound_trunk(
         CreateSIPOutboundTrunkRequest(
             trunk=SIPOutboundTrunkInfo(
-                name="Vobiz Outbound",
+                name="Trivern Voice Agent V2",
                 address=vobiz_host,
-                numbers=[vobiz_did],
+                numbers=[".*"],  # CRITICAL FIX: Allow dialing any number, not just the DID
                 auth_username=vobiz_user,
                 auth_password=vobiz_pass,
             )

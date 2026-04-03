@@ -83,7 +83,7 @@ class CallLogger:
             "source": "voice",
         }
 
-        n8n_base = os.getenv("N8N_BASE_URL", "http://host.docker.internal:5678")
+        n8n_base = os.getenv("N8N_BASE_URL", "http://172.17.0.1:5678")
         webhook_path = os.getenv("N8N_WEBHOOK_CALL_COMPLETE", "/webhook/voice-call-complete")
         url = f"{n8n_base}{webhook_path}"
 

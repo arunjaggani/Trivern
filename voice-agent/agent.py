@@ -20,6 +20,9 @@ import pytz
 from datetime import datetime
 from pathlib import Path
 
+from livekit.agents.llm import TurnHandlingOptions
+import silero
+
 import aiohttp
 
 from dotenv import load_dotenv
@@ -215,6 +218,10 @@ async def entrypoint(ctx: JobContext):
     customer_context = None
     city = ""
     business_name = "your business"
+    pronoun = ""
+    primary_goal = ""
+    situation = ""
+    whatsapp_number = ""
 
     if ctx.room.metadata:
         try:
@@ -229,6 +236,10 @@ async def entrypoint(ctx: JobContext):
             customer_context = meta.get("customer_context", None)
             city = meta.get("city", "").strip()
             business_name = meta.get("business", "your business").strip()
+            pronoun = meta.get("pronoun", "").strip()
+            primary_goal = meta.get("primary_goal", "").strip()
+            situation = meta.get("situation", "").strip()
+            whatsapp_number = meta.get("whatsapp_number", "").strip()
         except (json.JSONDecodeError, AttributeError):
             pass
 
@@ -257,6 +268,10 @@ async def entrypoint(ctx: JobContext):
     system_prompt_base = system_prompt_base.replace("{caller_name}", caller_name)
     system_prompt_base = system_prompt_base.replace("{business_name}", business_name)
     system_prompt_base = system_prompt_base.replace("{city}", city_name)
+    system_prompt_base = system_prompt_base.replace("{pronoun}", pronoun)
+    system_prompt_base = system_prompt_base.replace("{primary_goal}", primary_goal)
+    system_prompt_base = system_prompt_base.replace("{situation}", situation)
+    system_prompt_base = system_prompt_base.replace("{whatsapp_number}", whatsapp_number)
     
     # INJECT TIME AWARENESS
     ist_timezone = pytz.timezone('Asia/Kolkata')
@@ -296,8 +311,14 @@ async def entrypoint(ctx: JobContext):
     tools = create_tools() if TOOLS_AVAILABLE else []
     agent = Agent(instructions=full_prompt, tools=tools)
 
+    # Load VAD with aggressive settings to cut dead air
+    vad = silero.VAD.load(
+        min_silence_duration=0.5, # Trigger LLM after just 500ms of silence
+        min_speech_duration=0.1
+    )
+
     session = AgentSession(
-        vad=silero.VAD.load(),
+        vad=vad,
         stt=sarvam_plugin.STT(
             model=os.getenv("SARVAM_STT_MODEL", "saaras:v3"),
             language=language_code,
@@ -308,8 +329,7 @@ async def entrypoint(ctx: JobContext):
             api_key=os.getenv("SARVAM_API_KEY"),
         ),
         tts=tts_instance,
-        min_endpointing_delay=0.5,
-        max_endpointing_delay=6.0,
+        turn_handling=TurnHandlingOptions(patience=0.5, interruption_clear_delay=0.2),
     )
 
     await session.start(room=ctx.room, agent=agent)
@@ -357,7 +377,7 @@ async def entrypoint(ctx: JobContext):
             transcript = "\n".join(transcript_lines)
             webhook_url = os.getenv("N8N_WEBHOOK_CALL_COMPLETE", "")
             if webhook_url and transcript:
-                n8n_base = os.getenv("N8N_BASE_URL", "http://host.docker.internal:5678")
+                n8n_base = os.getenv("N8N_BASE_URL", "http://172.17.0.1:5678")
                 full_url = f"{n8n_base}{webhook_url}"
                 payload = {
                     "phone": participant.identity,

@@ -24,7 +24,7 @@ logger = logging.getLogger("voice-tools")
 
 def _n8n_url(webhook_path: str) -> str:
     """Build full N8N webhook URL from base + path."""
-    base = os.getenv("N8N_BASE_URL", "http://host.docker.internal:5678")
+    base = os.getenv("N8N_BASE_URL", "http://172.17.0.1:5678")
     path = os.getenv(webhook_path, "")
     return f"{base}{path}"
 
