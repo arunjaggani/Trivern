@@ -20,7 +20,6 @@ import pytz
 from datetime import datetime
 from pathlib import Path
 
-from livekit.agents.llm import TurnHandlingOptions
 import silero
 
 import aiohttp
@@ -329,7 +328,6 @@ async def entrypoint(ctx: JobContext):
             api_key=os.getenv("SARVAM_API_KEY"),
         ),
         tts=tts_instance,
-        turn_handling=TurnHandlingOptions(patience=0.5, interruption_clear_delay=0.2),
     )
 
     await session.start(room=ctx.room, agent=agent)
