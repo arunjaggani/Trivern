@@ -176,6 +176,13 @@ def build_full_prompt(
     if customer_context:
         memory_section = f"\nCALLER CONTEXT (from previous interactions):\n{customer_context}\nUse this context naturally. Don't ask for information you already have.\n"
 
+    if language_code == "en-IN":
+        script_instruction = "Respond EXCLUSIVELY in English using ONLY Latin script (A-Z). Do NOT use any Telugu or Hindi characters."
+    elif language_code == "te-IN":
+        script_instruction = "Respond EXCLUSIVELY in Telugu using ONLY native Telugu script (నమస్కారం). Do NOT use English/Latin letters for Telugu words."
+    else:
+        script_instruction = f"Respond EXCLUSIVELY in {human_language}. If {human_language} uses non-Latin script, write in native script."
+
     return (
         f"{system_prompt}\n\n"
         f"--- SESSION CONFIGURATION ---\n"
@@ -184,8 +191,7 @@ def build_full_prompt(
         f"Industry: {industry}\n"
         f"Industry mode: {industry_instruction}\n"
         f"{memory_section}"
-        f"\nRespond EXCLUSIVELY in {human_language}. "
-        f"If {human_language} uses non-Latin script, write in native script. "
+        f"\n{script_instruction}\n"
         f"Never switch language unless the caller does first.\n"
         f"OUTPUT FORMAT: Spoken text only. No brackets. No emojis. No stage directions."
     )
@@ -214,20 +220,20 @@ async def entrypoint(ctx: JobContext):
     if ctx.room.metadata:
         try:
             meta = json.loads(ctx.room.metadata)
-            language_code = meta.get("language", "")
+            language_code = str(meta.get("language") or "")
             
-            caller_name = meta.get("name", "Sir/Madam").strip()
+            caller_name = str(meta.get("name") or "Sir/Madam").strip()
             if not caller_name:
                 caller_name = "Sir/Madam"
                 
-            industry = meta.get("industry", "general")
-            customer_context = meta.get("customer_context", None)
-            city = meta.get("city", "").strip()
-            business_name = meta.get("business", "your business").strip()
-            pronoun = meta.get("pronoun", "").strip()
-            primary_goal = meta.get("primary_goal", "").strip()
-            situation = meta.get("situation", "").strip()
-            whatsapp_number = meta.get("whatsapp_number", "").strip()
+            industry = str(meta.get("industry") or "general")
+            customer_context = meta.get("customer_context")
+            city = str(meta.get("city") or "").strip()
+            business_name = str(meta.get("business") or "your business").strip()
+            pronoun = str(meta.get("pronoun") or "").strip()
+            primary_goal = str(meta.get("primary_goal") or "").strip()
+            situation = str(meta.get("situation") or "").strip()
+            whatsapp_number = str(meta.get("whatsapp_number") or "").strip()
         except (json.JSONDecodeError, AttributeError):
             pass
 
