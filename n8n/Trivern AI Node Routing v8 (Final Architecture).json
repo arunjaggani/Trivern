@@ -1,0 +1,542 @@
+{
+  "name": "Trivern AI Node Routing v8 (Final Architecture)",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "messages"
+        ],
+        "options": {
+          "messageStatusUpdates": [
+            "all"
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.whatsAppTrigger",
+      "typeVersion": 1,
+      "position": [
+        -384,
+        -64
+      ],
+      "id": "d1339af8-e1cc-458b-af6f-ac790867b942",
+      "name": "WhatsApp Trigger",
+      "webhookId": "2a754644-569e-41da-b0aa-fe5ae9c868dc",
+      "credentials": {
+        "whatsAppTriggerApi": {
+          "id": "H5qjIRj0zbTgZkNK",
+          "name": "WhatsApp OAuth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "filter-text-message",
+              "leftValue": "={{ $json.messages[0].type }}",
+              "rightValue": "text",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [
+        -112,
+        -80
+      ],
+      "id": "5b1f636f-2821-4062-95e5-a5684c7553af",
+      "name": "Filter Text Messages"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('Filter Text Messages').item.json.messages[0].text.body }}",
+        "options": {
+          "systemMessage": "You are Zara — AI Growth Consultant at Trivern Solutions.\nFounder: Arun Jaggani. You represent the brand with clarity, confidence, and warmth.\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nYOUR IDENTITY\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nYou are not a chatbot. You are not a form. You are not a virtual assistant.\nYou are a senior AI Growth Consultant who understands business deeply.\nYou speak like someone who has seen 100 businesses struggle with the same problems and knows exactly how to fix them.\n\nTrivern is not a digital agency.\nTrivern installs AI Revenue & Operations Infrastructure — intelligent systems that eliminate chaos and create predictable growth.\n\nYou represent that standard in every message.\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nCURRENT CONTEXT\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nClient WhatsApp number: {{$json.messages[0].from}}\nUser Role: {{$json.userRole}}\n→ ADMIN or EMPLOYEE → switch to OWNER MODE\n→ CLIENT or UNKNOWN → stay in SALES MODE\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nMESSAGING RULES (ALWAYS)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n• Max 3–5 SHORT lines per message\n• Max 1 question per reply\n• Use *bold* for key points and numbers\n• Use line breaks generously — do not send walls of text\n• Warm, human, direct — never robotic or formal\n• Never use corporate buzzwords or filler phrases\n• End every message with a clear next step or question\n• If a point needs more space, send 2 short messages in sequence\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSALES MODE — CLIENT CONVERSATIONS\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nYour mission: Turn a WhatsApp message into a booked call.\nThe path is always: Pain → Trust → Qualify → Book\n\nDO NOT ask multiple questions in one message.\nDO NOT list features. Connect pain to outcome.\nDO NOT wait for the client to ask about booking. YOU guide them there.\n\n5-STAGE CONVERSATION FLOW:\n1. ACKNOWLEDGE — Use their name if known. Mirror their energy. 1 sharp question.\n2. DISCOVER — Ask about their specific pain, one question at a time.\n3. ALIGN — Connect their pain directly to what Trivern solves.\n4. TRUST — Share one relevant insight that shows you understand their world.\n5. BOOK — As soon as there is clear pain or high intent, guide them to a call. Don't wait for them to ask.\n\nENERGY CALIBRATION:\n🔥 HOT (urgent, clear budget, ready) → \"Let's lock in a slot right now.\"\n🟡 WARM (interested, asking questions) → \"A 20-minute call will give you complete clarity.\"\n🟢 LUKEWARM (curious, low urgency) → \"Even 15 minutes could save you weeks of guessing.\"\n❄️ COLD (exploring, no urgency) → \"No rush — I'm here when you're ready.\"\n\nBOOKING TRIGGERS — Push for a call when:\n• They describe a clear business problem\n• They ask about pricing, process, or timeline\n• After 3+ meaningful exchanges\n• They use high-intent phrases: \"how do I start\", \"what's the process\", \"how soon\"\n• They admit frustration with their current situation\n\nHANDLING OBJECTIONS:\n• \"It's expensive\" → \"What's the cost of things staying the same?\"\n• \"I need to think\" → \"What specific clarity would help you decide?\"\n• \"We already have systems\" → \"What still feels manual or slipping through?\"\n• \"Not the right time\" → \"When would make more sense — next week or end of month?\"\n• \"Send me information\" → \"I'll be happy to — what's the one thing you want most clarity on?\"\n\nABOUT TRIVERN (what you offer):\nTrivern installs complete AI Revenue & Operations Infrastructure for service businesses.\n\nWe work with: coaches, consultants, clinics, dental practices, real estate firms, legal offices, training academies, and other service businesses.\n\nCore services:\n• Conversion-ready websites with integrated lead capture\n• Custom CRM, booking, and client management systems\n• WhatsApp & multi-channel AI conversational agents (like you)\n• AI voice receptionists — never miss a call again\n• Smart booking & scheduling engines (real-time availability, Google Meet, reminders)\n• Follow-up & nurturing automation — no lead ever goes cold\n• Revenue intelligence & lead scoring\n• Full Meta & WhatsApp Business API infrastructure\n• Custom software and mobile applications\n\nThe flagship is *The Trivern AI Revenue & Operations System* — a full infrastructure installation with 7 layers that turns a scattered business into an engineered growth machine.\n\nNEVER quote prices.\nNEVER promise ROI numbers.\nNEVER position Trivern as small, cheap, or flexible on quality.\nNEVER ask two questions at once.\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nBOOKING A MEETING\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nWhen the user is ready to book:\n1. Call get_available_slots — pass their WhatsApp number as phone\n2. Show exactly 2 slots in this format:\n   📅 *Option 1:* Wednesday, 5 Mar — 11:30 AM\n   📅 *Option 2:* Wednesday, 5 Mar — 2:00 PM\n   Which works better for you?\n3. When they choose, call book_meeting:\n   - phone = their WhatsApp number: {{$json.messages[0].from}}\n   - slotStart = the ISO datetime from slotsForBooking (NOT the formatted text)\n   - duration = 20\n   - notes = 1-line summary of their situation\n4. After booking, send the confirmationText from the API response EXACTLY as returned.\n   It includes the date, time, and 🔗 Google Meet link. Always include the Meet link.\n   Add a warm closing line after, e.g.:\n   \"See you there — come with your biggest operational challenge ready. 🚀\"\n\nIMPORTANT: Always share the Google Meet link if it is included in the booking confirmation. Never omit it.\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nTOOLS & WHEN TO USE THEM\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n• save_lead → after collecting: name, phone, company, service interest, context/pain, urgency, businessType, decisionRole, industry\n  → Set urgency=CRITICAL for: large budgets, enterprise, multi-location, urgent scaling need\n• get_available_slots → when client wants to book a call\n• book_meeting → once client selects a slot\n• save_conversation → every 5 messages or at natural end of conversation\n• emergency_cancel → OWNER MODE only\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nOWNER MODE (ADMIN / EMPLOYEE ONLY)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nBe concise, direct, use name. No sales pitch.\n\nListen for: cancel, emergency, reschedule, not available, busy.\n\nCancellation commands:\n• \"Cancel today's meetings\" → emergency_cancel(scope=today)\n• \"Cancel next meeting\" → emergency_cancel(scope=next)\n• \"Cancel everything\" → emergency_cancel(scope=all)\n• If they say \"emergency\" → ask scope first → then cancel\n\nAfter cancellation: confirm what was done and that clients have been notified.\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nLANGUAGE\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nDefault: English\nOffer Telugu naturally once if the business is local/regional.\nIf client switches to Telugu — match it fully.\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nIF ASKED IF YOU ARE AN AI\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\"I'm Zara — Trivern's AI Growth Consultant. The strategy call you'll book is with our human team.\""
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        592,
+        -48
+      ],
+      "id": "8f356122-1044-4e17-9787-6a53b39d3b23",
+      "name": "AI Agent",
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('WhatsApp Trigger').item.json.contacts[0].wa_id }}",
+        "contextWindowLength": 20
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        304,
+        240
+      ],
+      "id": "ef71b2b6-5040-4529-a7cb-561493bffb2d",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4o-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        144,
+        240
+      ],
+      "id": "08051520-ccfc-4420-8c4c-fa8a7205e0f3",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "fmTO2F3T1NlHBAZc",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "965447706656193",
+        "recipientPhoneNumber": "={{ $('WhatsApp Trigger').item.json.contacts[0].wa_id }}",
+        "textBody": "={{$json.output}}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        1200,
+        -64
+      ],
+      "id": "60aa1645-d165-4f1c-8a35-a4a0d19b7b44",
+      "name": "Send WhatsApp Message",
+      "webhookId": "141a7168-8a06-4e6c-9d31-8c609be18cb8",
+      "credentials": {
+        "whatsAppApi": {
+          "id": "XfeyIJaVvOnRIB1o",
+          "name": "WhatsApp account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://trivern.tech/api/n8n/lead-capture",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"name\": \"{name}\",\n  \"phone\": \"{phone}\",\n  \"company\": \"{company}\",\n  \"industry\": \"{industry}\",\n  \"service\": \"{service}\",\n  \"context\": \"{context_or_pain_points}\",\n  \"urgency\": \"{urgency}\",\n  \"businessType\": \"{business_type}\",\n  \"decisionRole\": \"{decision_role}\"\n}",
+        "placeholderDefinitions": {
+          "values": [
+            {
+              "name": "name",
+              "description": "Client's name",
+              "type": "string"
+            },
+            {
+              "name": "company",
+              "description": "Client's company name (optional)",
+              "type": "string"
+            },
+            {
+              "name": "industry",
+              "description": "Client's industry e.g., clinic, consulting, real estate",
+              "type": "string"
+            },
+            {
+              "name": "service",
+              "description": "Service the client is interested in",
+              "type": "string"
+            },
+            {
+              "name": "context_or_pain_points",
+              "description": "Summary of the client's pain points and situation",
+              "type": "string"
+            },
+            {
+              "name": "urgency",
+              "description": "Lead urgency: LOW, MEDIUM, HIGH, or CRITICAL",
+              "type": "string"
+            },
+            {
+              "name": "business_type",
+              "description": "Type of business: coach, clinic, consultant, real estate, etc.",
+              "type": "string"
+            },
+            {
+              "name": "decision_role",
+              "description": "Client's role: founder, owner, employee, assistant",
+              "type": "string"
+            },
+            {
+              "name": "phone",
+              "description": "The user's WhatsApp phone number",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        464,
+        240
+      ],
+      "id": "b0f65f8c-76ca-4118-98b1-106a507ea688",
+      "name": "save_lead"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://trivern.tech/api/n8n/save-conversation",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"phone\": \"{phone}\",\n  \"messages\": {messages_array},\n  \"summary\": \"{conversation_summary}\"\n}",
+        "placeholderDefinitions": {
+          "values": [
+            {
+              "name": "messages_array",
+              "description": "JSON array of messages",
+              "type": "string"
+            },
+            {
+              "name": "conversation_summary",
+              "description": "Brief AI summary of conversation",
+              "type": "string"
+            },
+            {
+              "name": "phone",
+              "description": "The user's WhatsApp phone number",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        1056,
+        240
+      ],
+      "id": "3e461c5e-54f7-4991-82dd-7580f53106c1",
+      "name": "save_conversation"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://trivern.tech/api/n8n/emergency-cancel",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"ownerPhone\": \"{phone}\",\n  \"scope\": \"{cancel_scope}\",\n  \"reason\": \"{reason}\"\n}",
+        "placeholderDefinitions": {
+          "values": [
+            {
+              "name": "cancel_scope",
+              "description": "Scope: 'today', 'next', or 'all'",
+              "type": "string"
+            },
+            {
+              "name": "reason",
+              "description": "Brief reason for cancellation",
+              "type": "string"
+            },
+            {
+              "name": "phone",
+              "description": "The user's WhatsApp phone number",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        1264,
+        240
+      ],
+      "id": "5e39cb8a-f37a-47ec-9bab-3ef113aedf7f",
+      "name": "emergency_cancel"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "8113516c-e0a9-4860-9de7-3ecf48e1ea96",
+              "name": "=userRole",
+              "value": "={{$json.role}}",
+              "type": "string"
+            },
+            {
+              "id": "dfe50522-90cf-4a09-931a-9fed808f29dc",
+              "name": "isTeamMembe",
+              "value": "={{ $json.isTeamMember }}",
+              "type": "boolean"
+            },
+            {
+              "id": "85e35610-e055-4962-9788-5b53b7b19e29",
+              "name": "isExistingClient",
+              "value": "={{ $json.isTeamMember }}",
+              "type": "boolean"
+            },
+            {
+              "id": "c9ae9c1b-ff2d-416b-b0d5-fd85306d459e",
+              "name": "",
+              "value": "",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        304,
+        -80
+      ],
+      "id": "57146054-56a2-4757-b3a2-dfaf4542ba31",
+      "name": "normalize_role"
+    },
+    {
+      "parameters": {
+        "url": "https://trivern.tech/api/n8n/check-role",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "phone",
+              "value": "={{$json.messages[0].from}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        96,
+        -80
+      ],
+      "id": "c007521d-54d3-496b-b640-dc749da64f5c",
+      "name": "check_role1"
+    },
+    {
+      "parameters": {
+        "url": "https://trivern.tech/api/n8n/available-slots",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('parameters0_Name', ``, 'string') }}",
+              "value": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('parameters0_Value', ``, 'string') }}"
+            },
+            {
+              "name": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('parameters1_Name', ``, 'string') }}",
+              "value": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('parameters1_Value', ``, 'string') }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.4,
+      "position": [
+        880,
+        240
+      ],
+      "id": "b1b56506-fe5e-463e-847c-51fc6da67262",
+      "name": "get_available_slots"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://trivern.tech/api/n8n/book-meeting",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ phone: $fromAI('phone', 'The client WhatsApp phone number', 'string'), slotStart: $fromAI('slotStart', 'ISO datetime of selected slot e.g. 2026-03-04T11:30:00.000Z', 'string'), duration: 20, notes: $fromAI('notes', 'Brief notes about the meeting context', 'string') }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.4,
+      "position": [
+        640,
+        240
+      ],
+      "id": "12880ee9-4c0b-4da1-8667-bf655fb52535",
+      "name": "book_meeting"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "WhatsApp Trigger": {
+      "main": [
+        [
+          {
+            "node": "Filter Text Messages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Text Messages": {
+      "main": [
+        [
+          {
+            "node": "check_role1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Send WhatsApp Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "save_lead": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "save_conversation": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "emergency_cancel": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "normalize_role": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "check_role1": {
+      "main": [
+        [
+          {
+            "node": "normalize_role",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get_available_slots": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "book_meeting": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "77d7d320-c5ce-4bd2-8070-a38660fd84c5",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "2383977c1321db4e30e7b4dbf3a8a6a7f9bc519538a8b46843a71a700de8c997"
+  },
+  "id": "nNb3usGHGf2Cfcah",
+  "tags": []
+}

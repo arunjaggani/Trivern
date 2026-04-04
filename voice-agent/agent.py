@@ -222,9 +222,9 @@ async def entrypoint(ctx: JobContext):
             meta = json.loads(ctx.room.metadata)
             language_code = str(meta.get("language") or "")
             
-            caller_name = str(meta.get("name") or "Sir/Madam").strip()
-            if not caller_name:
-                caller_name = "Sir/Madam"
+            caller_name = str(meta.get("name") or "గారు").strip()
+            if not caller_name or caller_name.lower() == "sir/madam":
+                caller_name = "గారు"
                 
             industry = str(meta.get("industry") or "general")
             customer_context = meta.get("customer_context")
@@ -260,12 +260,12 @@ async def entrypoint(ctx: JobContext):
 
     # INJECT REAL DATA TO PREVENT HALLUCINATIONS
     system_prompt_base = system_prompt_base.replace("{caller_name}", caller_name)
-    system_prompt_base = system_prompt_base.replace("{business_name}", business_name)
-    system_prompt_base = system_prompt_base.replace("{city}", city_name)
+    system_prompt_base = system_prompt_base.replace("{business_name}", business_name if business_name else "none")
+    system_prompt_base = system_prompt_base.replace("{city}", city_name if city_name else "none")
     system_prompt_base = system_prompt_base.replace("{pronoun}", pronoun)
-    system_prompt_base = system_prompt_base.replace("{primary_goal}", primary_goal)
-    system_prompt_base = system_prompt_base.replace("{situation}", situation)
-    system_prompt_base = system_prompt_base.replace("{whatsapp_number}", whatsapp_number)
+    system_prompt_base = system_prompt_base.replace("{primary_goal}", primary_goal if primary_goal else "none")
+    system_prompt_base = system_prompt_base.replace("{situation}", situation if situation else "none")
+    system_prompt_base = system_prompt_base.replace("{whatsapp_number}", whatsapp_number if whatsapp_number else "none")
     
     # INJECT TIME AWARENESS
     ist_timezone = pytz.timezone('Asia/Kolkata')
@@ -289,8 +289,8 @@ async def entrypoint(ctx: JobContext):
         model=os.getenv("SARVAM_TTS_MODEL", "bulbul:v3"),
         target_language_code=language_code,
         speaker=speaker,
-        pace=float(os.getenv("SARVAM_TTS_PACE", "0.95")),
-        temperature=float(os.getenv("SARVAM_TTS_TEMP", "0.5")),
+        pace=1.15,  # Forced fast pace
+        temperature=0.2,
     )
 
 
@@ -312,6 +312,7 @@ async def entrypoint(ctx: JobContext):
             model="sarvam-30b",
             base_url="https://api.sarvam.ai/v1",
             api_key=os.getenv("SARVAM_API_KEY"),
+            temperature=0.2, # Strict explicit non-thinking parameter
         ),
         tts=tts_instance,
         turn_detection="stt",
@@ -359,20 +360,17 @@ async def entrypoint(ctx: JobContext):
 
     ctx.add_shutdown_callback(_on_disconnect)
 
-    if caller_name and caller_name != "there" and customer_context:
-        # Returning customer — personalised greeting
+    if primary_goal != "none" and primary_goal != "":
         greeting_instruction = (
-            f"Greet {caller_name} warmly by name. "
-            f"Reference that they've contacted us before. "
-            f"Use the context: {customer_context[:100]}. "
-            f"Then ask a relevant follow-up question. "
-            f"Respond ONLY in {human_language}. Max 2 sentences."
+            f"Execute STEP 1: GREETING & REQUIREMENTS strictly per the system prompt. "
+            f"Acknowledge the caller's primary goal ({primary_goal}) naturally. "
+            f"Respond EXACTLY in {human_language}. Max 2 sentences."
         )
     else:
         greeting_instruction = (
-            f"Greet warmly. Say you are Zara from Trivern Solutions. "
-            f"Ask: what kind of business do you run. "
-            f"Respond ONLY in {human_language}. Max 2 sentences."
+            f"Execute STEP 1: GREETING & REQUIREMENTS strictly per the system prompt. "
+            f"Ask what service they are looking for regarding their business. "
+            f"Respond EXACTLY in {human_language}. Max 2 sentences."
         )
 
     try:

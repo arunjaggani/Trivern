@@ -19,7 +19,7 @@
         },
         {
             "parameters": {
-                "jsCode": "// ─── City → Language Detection ─────────────────\n// Maps the form's city field to Sarvam AI language code\n\nconst city = ($input.first().json.city || '').toLowerCase().trim();\n\nconst CITY_LANGUAGE_MAP = {\n  // Telugu (te-IN)\n  'hyderabad': 'te-IN',\n  'secunderabad': 'te-IN',\n  'warangal': 'te-IN',\n  'vijayawada': 'te-IN',\n  'visakhapatnam': 'te-IN',\n  'vizag': 'te-IN',\n  'tirupati': 'te-IN',\n  'guntur': 'te-IN',\n  'nellore': 'te-IN',\n  'kurnool': 'te-IN',\n  'rajahmundry': 'te-IN',\n  'kakinada': 'te-IN',\n  'eluru': 'te-IN',\n  'karimnagar': 'te-IN',\n  'nizamabad': 'te-IN',\n  'khammam': 'te-IN',\n  'mahbubnagar': 'te-IN',\n  'rangareddy': 'te-IN',\n  'medak': 'te-IN',\n  'nalgonda': 'te-IN',\n\n  // Hindi (hi-IN)\n  'delhi': 'hi-IN',\n  'new delhi': 'hi-IN',\n  'mumbai': 'hi-IN',\n  'pune': 'hi-IN',\n  'jaipur': 'hi-IN',\n  'lucknow': 'hi-IN',\n  'kanpur': 'hi-IN',\n  'nagpur': 'hi-IN',\n  'indore': 'hi-IN',\n  'bhopal': 'hi-IN',\n  'patna': 'hi-IN',\n  'agra': 'hi-IN',\n  'varanasi': 'hi-IN',\n  'noida': 'hi-IN',\n  'gurgaon': 'hi-IN',\n  'gurugram': 'hi-IN',\n  'ahmedabad': 'hi-IN',\n  'surat': 'hi-IN',\n  'chandigarh': 'hi-IN',\n  'dehradun': 'hi-IN',\n  'faridabad': 'hi-IN',\n  'ghaziabad': 'hi-IN',\n  'ranchi': 'hi-IN',\n\n  // English (en-IN) — default for cosmopolitan cities\n  'bangalore': 'en-IN',\n  'bengaluru': 'en-IN',\n  'goa': 'en-IN',\n  'pondicherry': 'en-IN',\n  'puducherry': 'en-IN',\n};\n\nconst language = CITY_LANGUAGE_MAP[city] || 'en-IN';\n\nreturn [{\n  json: {\n    ...($input.first().json),\n    language: language,\n    detectedCity: city,\n  }\n}];"
+                "jsCode": "// ─── City → Language Detection ─────────────────\n// Maps the form's city field to Sarvam AI language code\n\nconst inputData = $input.first().json.body || $input.first().json;\nconst city = (inputData.city || '').toLowerCase().trim();\n\nconst CITY_LANGUAGE_MAP = {\n  // Telugu (te-IN)\n  'hyderabad': 'te-IN',\n  'secunderabad': 'te-IN',\n  'warangal': 'te-IN',\n  'vijayawada': 'te-IN',\n  'visakhapatnam': 'te-IN',\n  'vizag': 'te-IN',\n  'tirupati': 'te-IN',\n  'guntur': 'te-IN',\n  'nellore': 'te-IN',\n  'kurnool': 'te-IN',\n  'rajahmundry': 'te-IN',\n  'kakinada': 'te-IN',\n  'eluru': 'te-IN',\n  'karimnagar': 'te-IN',\n  'nizamabad': 'te-IN',\n  'khammam': 'te-IN',\n  'mahbubnagar': 'te-IN',\n  'rangareddy': 'te-IN',\n  'medak': 'te-IN',\n  'nalgonda': 'te-IN',\n\n  // Hindi (hi-IN)\n  'delhi': 'hi-IN',\n  'new delhi': 'hi-IN',\n  'mumbai': 'hi-IN',\n  'pune': 'hi-IN',\n  'jaipur': 'hi-IN',\n  'lucknow': 'hi-IN',\n  'kanpur': 'hi-IN',\n  'nagpur': 'hi-IN',\n  'indore': 'hi-IN',\n  'bhopal': 'hi-IN',\n  'patna': 'hi-IN',\n  'agra': 'hi-IN',\n  'varanasi': 'hi-IN',\n  'noida': 'hi-IN',\n  'gurgaon': 'hi-IN',\n  'gurugram': 'hi-IN',\n  'ahmedabad': 'hi-IN',\n  'surat': 'hi-IN',\n  'chandigarh': 'hi-IN',\n  'dehradun': 'hi-IN',\n  'faridabad': 'hi-IN',\n  'ghaziabad': 'hi-IN',\n  'ranchi': 'hi-IN',\n\n  // English (en-IN) — default for cosmopolitan cities\n  'bangalore': 'en-IN',\n  'bengaluru': 'en-IN',\n  'goa': 'en-IN',\n  'pondicherry': 'en-IN',\n  'puducherry': 'en-IN',\n};\n\nconst language = CITY_LANGUAGE_MAP[city] || 'en-IN';\n\nreturn [{\n  json: {\n    ...inputData,\n    language: language,\n    detectedCity: city,\n  }\n}];"
             },
             "id": "detect-language",
             "name": "Detect Language from City",
@@ -33,7 +33,7 @@
         {
             "parameters": {
                 "method": "POST",
-                "url": "={{ $env.TRIVERN_API_URL }}/api/n8n/lead-capture",
+                "url": "https://trivern.tech/api/n8n/lead-capture",
                 "sendBody": true,
                 "bodyParameters": {
                     "parameters": [
@@ -73,7 +73,7 @@
         {
             "parameters": {
                 "method": "POST",
-                "url": "http://voice-outbound:8089/api/call",
+                "url": "http://127.0.0.1:8089/api/call",
                 "sendBody": true,
                 "bodyParameters": {
                     "parameters": [
@@ -137,13 +137,13 @@
         {
             "parameters": {
                 "method": "POST",
-                "url": "={{ $env.TRIVERN_API_URL }}/api/n8n/available-slots",
+                "url": "https://trivern.tech/api/n8n/available-slots",
                 "sendBody": true,
                 "bodyParameters": {
                     "parameters": [
                         {
                             "name": "phone",
-                            "value": "={{ $json.phone }}"
+                            "value": "={{ $json.body.phone || $json.phone }}"
                         }
                     ]
                 },
@@ -191,7 +191,7 @@
         {
             "parameters": {
                 "method": "POST",
-                "url": "={{ $env.TRIVERN_API_URL }}/api/n8n/book-meeting",
+                "url": "https://trivern.tech/api/n8n/book-meeting",
                 "sendBody": true,
                 "bodyParameters": {
                     "parameters": [
@@ -201,15 +201,15 @@
                         },
                         {
                             "name": "slotStart",
-                            "value": "={{ $json.slotStart }}"
+                            "value": "={{ $json.body.slotStart || $json.slotStart }}"
                         },
                         {
                             "name": "duration",
-                            "value": "={{ $json.duration || 20 }}"
+                            "value": "={{ $json.body.duration || $json.duration || 20 }}"
                         },
                         {
                             "name": "notes",
-                            "value": "={{ $json.notes || '' }}"
+                            "value": "={{ $json.body.notes || $json.notes || '' }}"
                         }
                     ]
                 },
@@ -257,17 +257,17 @@
         {
             "parameters": {
                 "method": "POST",
-                "url": "={{ $env.TRIVERN_API_URL }}/api/n8n/lead-capture",
+                "url": "https://trivern.tech/api/n8n/lead-capture",
                 "sendBody": true,
                 "bodyParameters": {
                     "parameters": [
                         {
                             "name": "name",
-                            "value": "={{ $json.name }}"
+                            "value": "={{ $json.body.name || $json.name }}"
                         },
                         {
                             "name": "phone",
-                            "value": "={{ $json.phone }}"
+                            "value": "={{ $json.body.phone || $json.phone }}"
                         },
                         {
                             "name": "company",
@@ -275,15 +275,15 @@
                         },
                         {
                             "name": "service",
-                            "value": "={{ $json.service || '' }}"
+                            "value": "={{ $json.body.service || $json.service || '' }}"
                         },
                         {
                             "name": "context",
-                            "value": "={{ $json.context || '' }}"
+                            "value": "={{ $json.body.context || $json.context || '' }}"
                         },
                         {
                             "name": "urgency",
-                            "value": "={{ $json.urgency || 'MEDIUM' }}"
+                            "value": "={{ $json.body.urgency || $json.urgency || 'MEDIUM' }}"
                         },
                         {
                             "name": "source",
@@ -334,7 +334,7 @@
         },
         {
             "parameters": {
-                "jsCode": "// ─── Process Call Completion ────────────────────\n// Store call data and trigger WhatsApp confirmation if meeting was booked\n\nconst data = $input.first().json;\n\nreturn [{\n  json: {\n    room: data.room,\n    callerNumber: data.callerNumber,\n    language: data.language,\n    duration: data.duration,\n    outcome: data.outcome,\n    leadTemperature: data.leadTemperature,\n    transcript: JSON.stringify(data.transcript || []),\n    source: 'voice',\n    shouldSendWhatsApp: data.outcome === 'booked',\n  }\n}];"
+                "jsCode": "// ─── Process Call Completion ────────────────────\n// Store call data and trigger WhatsApp confirmation if meeting was booked\n\nconst data = $input.first().json.body || $input.first().json;\n\nreturn [{\n  json: {\n    room: data.room,\n    callerNumber: data.callerNumber,\n    language: data.language,\n    duration: data.duration,\n    outcome: data.outcome,\n    leadTemperature: data.leadTemperature,\n    transcript: JSON.stringify(data.transcript || []),\n    source: 'voice',\n    shouldSendWhatsApp: data.outcome === 'booked',\n  }\n}];"
             },
             "id": "process-call-data",
             "name": "Process Call Data",
@@ -348,7 +348,7 @@
         {
             "parameters": {
                 "method": "POST",
-                "url": "={{ $env.TRIVERN_API_URL }}/api/n8n/save-conversation",
+                "url": "https://trivern.tech/api/n8n/save-conversation",
                 "sendBody": true,
                 "bodyParameters": {
                     "parameters": [

@@ -39,3 +39,5 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+n8n/fix_workflow_v8.py
+test_env/ 
