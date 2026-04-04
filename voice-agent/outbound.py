@@ -21,10 +21,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from livekit import api as livekit_api
 from livekit.protocol.sip import (
-    CreateSIPOutboundTrunkRequest,
     CreateSIPParticipantRequest,
-    ListSIPOutboundTrunkRequest,
-    SIPOutboundTrunkInfo,
 )
 import uvicorn
 
@@ -40,11 +37,6 @@ _handler.setFormatter(logging.Formatter(
 logger.addHandler(_handler)
 
 app = FastAPI(title="Voice Agent — Outbound Trigger")
-
-# ─── Module-level SIP trunk cache ────────────────────────
-# Persists for the container's lifetime. Reset on error so
-# the next call attempt retries fresh.
-_cached_trunk_id: str | None = None
 
 
 class CallRequest(BaseModel):
@@ -70,66 +62,6 @@ def normalize_phone(phone: str) -> str:
     return phone
 
 
-async def _ensure_trunk(lk) -> str:
-    """
-    Ensure a Vobiz outbound SIP trunk exists on the LiveKit server.
-
-    Fully self-healing — no manual trunk ID management needed:
-    1. Returns cached trunk ID if available (fast path)
-    2. Lists existing trunks, finds one named "Vobiz Outbound"
-    3. If none exists (Redis wiped, fresh deploy), auto-creates from .env
-    4. Caches the result for the container's lifetime
-    """
-    global _cached_trunk_id
-
-    if _cached_trunk_id:
-        logger.info(f"Using cached trunk: {_cached_trunk_id}")
-        return _cached_trunk_id
-
-    # Auto-discover: find our trunk by name
-    logger.info("Searching for 'Vobiz Outbound' trunk...")
-    trunks = await lk.sip.list_sip_outbound_trunk(
-        ListSIPOutboundTrunkRequest()
-    )
-
-    for trunk in (trunks.items or []):
-        if trunk.name == "Trivern Voice Agent V2":
-            _cached_trunk_id = trunk.sip_trunk_id
-            logger.info(
-                f"Found trunk: {_cached_trunk_id} "
-                f"(address={trunk.address})"
-            )
-            return _cached_trunk_id
-
-    # No trunk exists — auto-register from .env credentials
-    logger.info("No trunk found. Auto-registering from .env...")
-
-    vobiz_host = os.getenv("VOBIZ_SIP_HOST", "sip.vobiz.ai")
-    vobiz_user = os.getenv("VOBIZ_SIP_USERNAME", "")
-    vobiz_pass = os.getenv("VOBIZ_SIP_PASSWORD", "")
-    vobiz_did = os.getenv("VOBIZ_DID_NUMBER", "")
-
-    if not all([vobiz_user, vobiz_pass, vobiz_did]):
-        raise ValueError(
-            "Cannot auto-register trunk: VOBIZ_SIP_USERNAME, "
-            "VOBIZ_SIP_PASSWORD, and VOBIZ_DID_NUMBER must be in .env"
-        )
-
-    result = await lk.sip.create_sip_outbound_trunk(
-        CreateSIPOutboundTrunkRequest(
-            trunk=SIPOutboundTrunkInfo(
-                name="Trivern Voice Agent V2",
-                address=vobiz_host,
-                numbers=[".*"],  # CRITICAL FIX: Allow dialing any number, not just the DID
-                auth_username=vobiz_user,
-                auth_password=vobiz_pass,
-            )
-        )
-    )
-
-    _cached_trunk_id = result.sip_trunk_id
-    logger.info(f"Registered new trunk: {_cached_trunk_id}")
-    return _cached_trunk_id
 
 
 @app.post("/api/call")
@@ -139,11 +71,10 @@ async def trigger_outbound_call(req: CallRequest):
 
     1. Normalize phone to +91XXXXXXXXXX
     2. Create a LiveKit room with metadata
-    3. Ensure Vobiz SIP trunk exists (auto-register if needed)
+    3. Read LIVEKIT_SIP_TRUNK_ID from environment
     4. Create SIP participant (dials the phone)
     5. agent.py auto-connects to handle the call
     """
-    global _cached_trunk_id
 
     try:
         phone = normalize_phone(req.phone)
@@ -182,8 +113,10 @@ async def trigger_outbound_call(req: CallRequest):
             )
             logger.info(f"Room created: {room_name}")
 
-            # Step 2: Get or create the Vobiz SIP trunk
-            sip_trunk_id = await _ensure_trunk(lk)
+            # Step 2: Ensure we have the Trunk ID from env
+            sip_trunk_id = os.getenv("LIVEKIT_SIP_TRUNK_ID")
+            if not sip_trunk_id:
+                raise ValueError("LIVEKIT_SIP_TRUNK_ID is missing from the environment variables.")
 
             # Step 3: Dial the phone via Vobiz
             logger.info(f"Dialing {phone} via trunk {sip_trunk_id}")
@@ -221,7 +154,6 @@ async def trigger_outbound_call(req: CallRequest):
 
     except Exception as e:
         logger.error(f"Outbound call failed: {e}")
-        _cached_trunk_id = None  # Reset cache so next attempt retries
         raise HTTPException(status_code=500, detail=str(e))
 
 
