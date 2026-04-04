@@ -303,8 +303,10 @@ async def entrypoint(ctx: JobContext):
 
     session = AgentSession(
         stt=sarvam_plugin.STT(
-            model=os.getenv("SARVAM_STT_MODEL", "saaras:v3"),
+            model="saaras:v3",
             language=language_code,
+            mode="transcribe",
+            flush_signal=True
         ),
         llm=openai_plugin.LLM(
             model="sarvam-30b",
@@ -312,6 +314,8 @@ async def entrypoint(ctx: JobContext):
             api_key=os.getenv("SARVAM_API_KEY"),
         ),
         tts=tts_instance,
+        turn_detection="stt",
+        min_endpointing_delay=0.07,
     )
 
     await session.start(room=ctx.room, agent=agent)
