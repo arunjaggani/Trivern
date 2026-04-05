@@ -217,9 +217,18 @@ async def entrypoint(ctx: JobContext):
     situation = ""
     whatsapp_number = ""
 
+    logger.info(f"[METADATA RAW] Received from n8n webhook: {ctx.room.metadata}")
+
     if ctx.room.metadata:
         try:
             meta = json.loads(ctx.room.metadata)
+            
+            # Robust extraction: if it's double-stringified from n8n JSON conversion
+            if isinstance(meta, str):
+                meta = json.loads(meta)
+                
+            logger.info(f"[METADATA PARSED] Type: {type(meta)}, Content: {meta}")
+            
             language_code = str(meta.get("language") or "")
             
             caller_name = str(meta.get("name") or "గారు").strip()
@@ -234,8 +243,11 @@ async def entrypoint(ctx: JobContext):
             primary_goal = str(meta.get("primary_goal") or "").strip()
             situation = str(meta.get("situation") or "").strip()
             whatsapp_number = str(meta.get("whatsapp_number") or "").strip()
-        except (json.JSONDecodeError, AttributeError):
-            pass
+            
+            logger.info(f"[METADATA EXTRACT] Extracted Name: '{caller_name}', WhatsApp: '{whatsapp_number}', Goal: '{primary_goal}'")
+            
+        except (json.JSONDecodeError, AttributeError) as e:
+            logger.error(f"[METADATA ERROR] Failed to parse room metadata: {e}")
 
     city_name = city if city else "your location"
 
