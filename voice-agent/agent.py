@@ -200,9 +200,13 @@ def build_full_prompt(
 async def entrypoint(ctx: JobContext):
     logger.info(f"New call: room={ctx.room.name}")
 
-    # ── 1. Connect FIRST — needed before we can read participant.identity ──────
+    # ── 1. Connect FIRST — needed before we can read participant.identity ─────
     await ctx.connect(auto_subscribe=AutoSubscribe.AUDIO_ONLY)
-    participant = await ctx.wait_for_participant()
+    try:
+        participant = await ctx.wait_for_participant(timeout=30.0)
+    except Exception as e:
+        logger.error(f"[PARTICIPANT ERROR] Room disconnected or timed out before participant joined: {e}")
+        return  # Gracefully exit — no session to start
     logger.info(f"Participant connected: {participant.identity}")
 
     # ── 2. Extract metadata ───────────────────────────────────────────────────
@@ -292,7 +296,36 @@ async def entrypoint(ctx: JobContext):
         customer_context=customer_context,
     )
 
-    # ── 6. Call logging ───────────────────────────────────────────────────────
+    # ── 6. Create VoiceCall record in DB (start of call) ──────────────────────
+    trivern_api_base = os.getenv("TRIVERN_API_BASE", "https://trivern.tech").rstrip("/")
+    agent_secret = os.getenv("VOICE_AGENT_SECRET", "")
+    api_headers = {"Content-Type": "application/json"}
+    if agent_secret:
+        api_headers["x-agent-secret"] = agent_secret
+
+    call_id: str | None = None
+    call_start_time = datetime.now(pytz.timezone('Asia/Kolkata'))
+
+    try:
+        async with aiohttp.ClientSession() as http:
+            async with http.post(
+                f"{trivern_api_base}/api/voice/log",
+                json={
+                    "callerNumber": participant.identity,
+                    "roomName": ctx.room.name,
+                    "language": language_code,
+                    "callType": "outbound",
+                },
+                headers=api_headers,
+                timeout=aiohttp.ClientTimeout(total=8),
+            ) as resp:
+                data = await resp.json()
+                call_id = data.get("callId")
+                logger.info(f"[VOICE LOG] Call record created: {call_id}")
+    except Exception as e:
+        logger.warning(f"[VOICE LOG] Could not create call record: {e}")
+
+    # ── 6b. Local file call logger (legacy) ────────────────────────────────
     call_log = CallLogger(room_name=ctx.room.name)
     call_log.start(caller_number=participant.identity, language=language_code)
 
@@ -336,10 +369,12 @@ async def entrypoint(ctx: JobContext):
 
 
 
-    # ── On-disconnect: post transcript to n8n ──────────────────────────────────
+    # ── On-disconnect: save transcript + update VoiceCall record ─────────────
     async def _on_disconnect():
-        """Called when participant leaves — sends transcript to n8n."""
+        """Called when participant leaves — finalizes VoiceCall in DB."""
         try:
+            # Build transcript from session context
+            transcript_messages = []
             transcript_lines = []
             if hasattr(session, 'chat_ctx') and session.chat_ctx:
                 for msg in session.chat_ctx.messages:
@@ -347,30 +382,79 @@ async def entrypoint(ctx: JobContext):
                     content = getattr(msg, 'content', '')
                     if content:
                         transcript_lines.append(f"{role}: {content}")
+                        transcript_messages.append({"role": role, "content": content})
 
-            transcript = "\n".join(transcript_lines)
+            # Calculate call duration in seconds
+            call_end_time = datetime.now(pytz.timezone('Asia/Kolkata'))
+            duration_secs = int((call_end_time - call_start_time).total_seconds())
+
+            # Determine outcome from transcript context
+            full_transcript_text = " ".join(transcript_lines).lower()
+            if "confirm" in full_transcript_text or "booked" in full_transcript_text or "meeting is confirmed" in full_transcript_text:
+                outcome = "booked"
+                lead_temp = "hot"
+            elif "whatsapp" in full_transcript_text or "follow up" in full_transcript_text:
+                outcome = "whatsapp_followup"
+                lead_temp = "warm"
+            else:
+                outcome = "completed"
+                lead_temp = "warm"
+
+            # Build a brief summary (first + last agent message)
+            agent_lines = [l for l in transcript_lines if l.startswith("assistant:")]
+            summary = agent_lines[0] if agent_lines else "Voice call completed."
+
+            # Patch the VoiceCall record in DB
+            if call_id:
+                try:
+                    async with aiohttp.ClientSession() as http:
+                        patch_url = f"{trivern_api_base}/api/voice/log?id={call_id}"
+                        async with http.patch(
+                            patch_url,
+                            json={
+                                "duration": duration_secs,
+                                "outcome": outcome,
+                                "transcript": transcript_messages,
+                                "summary": summary[:500],
+                                "leadTemperature": lead_temp,
+                            },
+                            headers=api_headers,
+                            timeout=aiohttp.ClientTimeout(total=10),
+                        ) as resp:
+                            logger.info(f"[VOICE LOG] Call record updated: {resp.status} | outcome={outcome} | duration={duration_secs}s")
+                except Exception as e:
+                    logger.error(f"[VOICE LOG] Failed to update call record: {e}")
+
+            # Also post transcript to n8n call-complete webhook (if configured)
             webhook_url = os.getenv("N8N_WEBHOOK_CALL_COMPLETE", "")
-            if webhook_url and transcript:
+            if webhook_url and transcript_messages:
                 n8n_base = os.getenv("N8N_BASE_URL", "http://172.17.0.1:5678")
                 full_url = f"{n8n_base}{webhook_url}"
-                payload = {
-                    "phone": participant.identity,
-                    "room": ctx.room.name,
-                    "language": language_code,
-                    "industry": industry,
-                    "transcript": transcript,
-                    "source": "voice",
-                }
-                async with aiohttp.ClientSession() as http:
-                    async with http.post(
-                        full_url, json=payload,
-                        timeout=aiohttp.ClientTimeout(total=10)
-                    ) as resp:
-                        logger.info(f"Transcript posted to n8n: {resp.status}")
+                try:
+                    async with aiohttp.ClientSession() as http:
+                        async with http.post(
+                            full_url,
+                            json={
+                                "phone": participant.identity,
+                                "room": ctx.room.name,
+                                "language": language_code,
+                                "industry": industry,
+                                "transcript": "\n".join(transcript_lines),
+                                "source": "voice",
+                                "outcome": outcome,
+                                "duration": duration_secs,
+                            },
+                            timeout=aiohttp.ClientTimeout(total=10),
+                        ) as resp:
+                            logger.info(f"[N8N] Transcript posted: {resp.status}")
+                except Exception as e:
+                    logger.warning(f"[N8N] Transcript webhook failed: {e}")
+
         except Exception as e:
-            logger.error(f"Disconnect hook failed: {e}", exc_info=True)
+            logger.error(f"[DISCONNECT] Hook failed: {e}", exc_info=True)
 
     ctx.add_shutdown_callback(_on_disconnect)
+
 
     if primary_goal and primary_goal != "":
         greeting_instruction = (

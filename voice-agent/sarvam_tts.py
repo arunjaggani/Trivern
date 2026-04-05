@@ -90,7 +90,21 @@ def split_into_sentences(text: str) -> list[str]:
     if current:
         chunks.append(current)
 
-    return chunks if chunks else [text[:500]]
+    # Filter out tiny fragments that cause mid-word TTS truncation
+    # Minimum 40 chars ensures a complete natural phrase is always synthesized
+    merged = []
+    buffer = ""
+    for chunk in (chunks if chunks else [text[:500]]):
+        if len(buffer) + len(chunk) + 1 < 40:
+            buffer = f"{buffer} {chunk}".strip()
+        else:
+            if buffer:
+                merged.append(buffer)
+            buffer = chunk
+    if buffer:
+        merged.append(buffer)
+
+    return merged if merged else [text[:500]]
 
 
 class CustomSarvamTTS(tts.TTS):
@@ -224,9 +238,7 @@ class SarvamStream(tts.ChunkedStream):
         if not raw_text or not raw_text.strip():
             return
 
-        # Direct raw stream
         text = raw_text
-
         if not text or not text.strip():
             return
 
@@ -234,11 +246,7 @@ class SarvamStream(tts.ChunkedStream):
         chunks = split_into_sentences(text)
         logger.info(f"TTS: {len(chunks)} chunks for {len(text)} chars (raw={len(raw_text)})")
 
-        # Fetch all chunks in parallel — first plays while rest still loading
-        tasks = [self._tts.fetch_audio(chunk) for chunk in chunks]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-
-        # Initialize emitter once for the full response
+        # Initialize emitter ONCE for the full response
         output_emitter.initialize(
             request_id=uuid.uuid4().hex,
             sample_rate=24000,
@@ -246,14 +254,20 @@ class SarvamStream(tts.ChunkedStream):
             mime_type="audio/wav",
         )
 
+        # !! SEQUENTIAL fetch — guarantees the audio emitter receives a clean
+        # finished signal after each chunk, preventing "speech scheduling is paused"
         pushed = 0
-        for i, result in enumerate(results):
-            if isinstance(result, Exception):
-                logger.error(f"Chunk {i} failed: {result}")
+        for i, chunk in enumerate(chunks):
+            try:
+                result = await self._tts.fetch_audio(chunk)
+                if result:
+                    output_emitter.push(result)
+                    pushed += 1
+                else:
+                    logger.warning(f"Chunk {i} returned no audio, skipping")
+            except Exception as e:
+                logger.error(f"Chunk {i} fetch failed: {e}")
                 continue
-            if result:
-                output_emitter.push(result)
-                pushed += 1
 
         output_emitter.flush()
 

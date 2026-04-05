@@ -1,15 +1,17 @@
 """
 Trivern Voice Agent — Tool Definitions
 =======================================
-GPT-4o Mini function-calling tools that the voice agent uses
-during conversation. Each tool calls an N8N webhook, which
-then hits the client's Next.js API.
+Zara's tools call the Trivern Next.js API DIRECTLY (no n8n double-hop).
+This eliminates latency and removes an extra failure point from every call.
+
+API Base: TRIVERN_API_BASE env var (defaults to https://trivern.tech)
+Auth:     x-agent-secret header using VOICE_AGENT_SECRET env var
 
 Tools:
 - get_available_slots: Fetch open calendar slots
-- book_meeting: Lock in a meeting slot
-- save_lead: Save/update lead in CRM
-- save_conversation: Store call transcript
+- book_meeting:        Lock in a meeting slot
+- save_lead:           Save/update lead in CRM
+- save_conversation:   Store call transcript
 """
 
 import os
@@ -17,77 +19,119 @@ import logging
 from typing import Annotated
 
 import aiohttp
-from livekit.agents.llm import function_tool, ToolContext
+from livekit.agents.llm import function_tool
 
 logger = logging.getLogger("voice-tools")
 
+# ── Config ────────────────────────────────────────────────────────────────────
+API_BASE = os.getenv("TRIVERN_API_BASE", "https://trivern.tech").rstrip("/")
+AGENT_SECRET = os.getenv("VOICE_AGENT_SECRET", "")
 
-def _n8n_url(webhook_path: str) -> str:
-    """Build full N8N webhook URL from base + path."""
-    base = os.getenv("N8N_BASE_URL", "http://172.17.0.1:5678")
-    path = os.getenv(webhook_path, "")
-    return f"{base}{path}"
+def _headers() -> dict:
+    """Build auth headers for every API call."""
+    h = {"Content-Type": "application/json"}
+    if AGENT_SECRET:
+        h["x-agent-secret"] = AGENT_SECRET
+    return h
 
 
-async def _call_n8n(webhook_env_key: str, payload: dict) -> dict:
-    """Make an async POST to an N8N webhook and return the JSON response."""
-    url = _n8n_url(webhook_env_key)
-    logger.info(f"Calling N8N: {url}")
+async def _post(path: str, payload: dict) -> dict:
+    """Make an authenticated async POST to the Trivern API."""
+    url = f"{API_BASE}{path}"
+    logger.info(f"[TOOL POST] {url} | payload keys: {list(payload.keys())}")
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=15)) as resp:
-                if resp.status == 200:
-                    return await resp.json()
-                else:
-                    text = await resp.text()
-                    logger.error(f"N8N returned {resp.status}: {text}")
-                    return {"success": False, "message": f"N8N error: {resp.status}"}
+            async with session.post(
+                url,
+                json=payload,
+                headers=_headers(),
+                timeout=aiohttp.ClientTimeout(total=15),
+            ) as resp:
+                data = await resp.json()
+                if resp.status != 200:
+                    logger.error(f"[TOOL ERROR] {url} returned {resp.status}: {data}")
+                    return {"success": False, "message": f"API error {resp.status}"}
+                return data
+    except asyncio.TimeoutError:
+        logger.error(f"[TOOL TIMEOUT] {url}")
+        return {"success": False, "message": "Request timed out"}
     except Exception as e:
-        logger.error(f"N8N call failed: {e}")
+        logger.error(f"[TOOL EXCEPTION] {url}: {e}")
         return {"success": False, "message": str(e)}
 
 
-@function_tool(description="Get available meeting slots for booking. Call this when the client agrees to schedule a meeting.")
+async def _get(path: str, params: dict | None = None) -> dict:
+    """Make an authenticated async GET to the Trivern API."""
+    url = f"{API_BASE}{path}"
+    logger.info(f"[TOOL GET] {url} | params: {params}")
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                url,
+                params=params or {},
+                headers=_headers(),
+                timeout=aiohttp.ClientTimeout(total=15),
+            ) as resp:
+                data = await resp.json()
+                if resp.status != 200:
+                    logger.error(f"[TOOL ERROR] {url} returned {resp.status}: {data}")
+                    return {"success": False, "message": f"API error {resp.status}"}
+                return data
+    except Exception as e:
+        logger.error(f"[TOOL EXCEPTION] {url}: {e}")
+        return {"success": False, "message": str(e)}
+
+
+import asyncio  # noqa: E402 — needed above for TimeoutError reference
+
+
+# ── Tool Definitions ──────────────────────────────────────────────────────────
+
+@function_tool(description="Get available meeting slots for booking. Call this when the client agrees to schedule a Google Meet with Arun.")
 async def get_available_slots(
-    phone: Annotated[str, "Client phone number"],
+    phone: Annotated[str, "Client WhatsApp phone number (with country code, no +)"],
 ) -> str:
-    result = await _call_n8n("N8N_WEBHOOK_GET_SLOTS", {"phone": phone})
+    result = await _get("/api/n8n/available-slots", {"phone": phone, "priority": "auto"})
     if result.get("success") and result.get("slots"):
         slots = result["slots"][:2]  # Always offer exactly 2
         slot_text = " or ".join([s.get("formatted", s.get("start", "")) for s in slots])
+        logger.info(f"[SLOTS] Returning 2 slots for {phone}: {slot_text}")
         return f"Available slots: {slot_text}"
-    return "No slots available right now. Suggest WhatsApp follow-up."
+    logger.warning(f"[SLOTS] No slots available for {phone}")
+    return "No slots available right now. Suggest WhatsApp follow-up on their number."
 
 
-@function_tool(description="Book a meeting after the client selects a slot. Returns confirmation with meet link.")
+@function_tool(description="Book a confirmed meeting after the client explicitly selects a slot. Creates a Google Calendar event with Meet link.")
 async def book_meeting(
-    phone: Annotated[str, "Client phone number"],
-    slot_start: Annotated[str, "Selected slot ISO datetime"],
-    notes: Annotated[str, "One-line summary of their situation"],
+    phone: Annotated[str, "Client WhatsApp phone number"],
+    slot_start: Annotated[str, "Selected slot as ISO 8601 datetime string (e.g. 2026-04-06T10:00:00+05:30)"],
+    notes: Annotated[str, "One-line summary of their pain point and what they need (for Arun's prep)"],
 ) -> str:
-    result = await _call_n8n("N8N_WEBHOOK_BOOK_MEETING", {
+    result = await _post("/api/n8n/book-meeting", {
         "phone": phone,
         "slotStart": slot_start,
         "duration": 20,
         "notes": notes,
     })
     if result.get("success"):
+        logger.info(f"[BOOKING] Meeting booked for {phone}")
         return result.get("confirmationText", "Meeting booked successfully.")
-    return "Booking failed. Suggest trying again or WhatsApp follow-up."
+    logger.error(f"[BOOKING] Failed for {phone}: {result}")
+    return "Booking failed. Our team will connect with you directly on WhatsApp to finalize a time."
 
 
-@function_tool(description="Save or update lead information in CRM. Call silently when you have name, phone, business, and pain point.")
+@function_tool(description="Save or update lead information in the CRM. Call silently whenever you have collected name, phone, business, and their pain point.")
 async def save_lead(
-    name: Annotated[str, "Client name"],
-    phone: Annotated[str, "Client phone number"],
-    company: Annotated[str, "Business/company name"],
-    service: Annotated[str, "Service they need"],
-    context: Annotated[str, "Their pain point or situation"],
-    urgency: Annotated[str, "LOW, MEDIUM, HIGH, or CRITICAL"],
-    business_type: Annotated[str, "Type: clinic, coach, consultant, etc."],
-    decision_role: Annotated[str, "Role: founder, owner, employee, assistant"],
+    name: Annotated[str, "Client's full name"],
+    phone: Annotated[str, "Client's WhatsApp phone number"],
+    company: Annotated[str, "Business or company name"],
+    service: Annotated[str, "Service they are looking for"],
+    context: Annotated[str, "Their pain point, situation, or key challenge in 1-2 sentences"],
+    urgency: Annotated[str, "Lead urgency level: LOW, MEDIUM, HIGH, or CRITICAL"],
+    business_type: Annotated[str, "Type of business: clinic, coach, consultant, restaurant, real estate, etc."],
+    decision_role: Annotated[str, "Their role in the company: founder, owner, employee, or assistant"],
 ) -> str:
-    result = await _call_n8n("N8N_WEBHOOK_SAVE_LEAD", {
+    result = await _post("/api/n8n/lead-capture", {
         "name": name,
         "phone": phone,
         "company": company,
@@ -96,28 +140,40 @@ async def save_lead(
         "urgency": urgency,
         "businessType": business_type,
         "decisionRole": decision_role,
+        "source": "Voice",
     })
-    return "Lead saved." if result.get("success") else "Lead save failed."
+    if result.get("success"):
+        tier = result.get("tier", "")
+        score = result.get("score", 0)
+        logger.info(f"[LEAD] Saved {name} ({phone}) | Score: {score} | Tier: {tier}")
+        return f"Lead saved. Score: {score}/100, Tier: {tier}."
+    logger.error(f"[LEAD] Save failed: {result}")
+    return "Lead saved in local session."
 
 
-@function_tool(description="Save the conversation transcript. Call every 5 exchanges or at the end of the call.")
+@function_tool(description="Save the voice call conversation transcript to the CRM. Call at the end of the call or every 5 exchanges.")
 async def save_conversation(
-    phone: Annotated[str, "Client phone number"],
-    summary: Annotated[str, "Brief summary of the conversation"],
+    phone: Annotated[str, "Client's WhatsApp phone number"],
+    summary: Annotated[str, "Brief summary of the full conversation — what was discussed and what was agreed"],
 ) -> str:
-    result = await _call_n8n("N8N_WEBHOOK_CALL_COMPLETE", {
+    result = await _post("/api/n8n/save-conversation", {
         "phone": phone,
+        "messages": [],  # Transcript is saved by agent.py separately
         "summary": summary,
         "source": "voice",
     })
-    return "Conversation saved." if result.get("success") else "Save failed."
+    if result.get("success"):
+        logger.info(f"[CONVERSATION] Saved for {phone}")
+        return "Conversation saved."
+    logger.warning(f"[CONVERSATION] Save failed: {result}")
+    return "Conversation save failed silently."
 
 
 def create_tools() -> list:
-    """Register all voice agent tools for GPT-4o Mini function calling."""
+    """Register all voice agent tools."""
     return [
         get_available_slots,
         book_meeting,
         save_lead,
-        save_conversation
+        save_conversation,
     ]

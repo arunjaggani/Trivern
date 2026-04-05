@@ -8,17 +8,25 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
     }
 
-    const { name, phone, city, gender, service, company } = body;
+    // Accept all form fields — including the ones Zara needs for her prompt
+    const {
+        name,
+        phone,
+        city,
+        gender,
+        service,
+        company,
+        primary_goal,
+        situation,
+        whatsapp_number,
+        pronoun,
+    } = body;
 
-    // Optional: Log to your own DB here or Google Sheets
+    const n8nWebhookUrl = process.env.N8N_WEBHOOK_URL_NEW_LEAD || "http://127.0.0.1:5678/webhook/new-lead";
 
-    // Forward to N8N "New Lead" Webhook so we can see the execution in N8N.
-    // Assuming N8N is running on the same VPS on port 5678.
+    console.log(`[Outbound API] Triggering n8n for ${phone} → ${n8nWebhookUrl}`);
+
     try {
-        const n8nWebhookUrl = process.env.N8N_WEBHOOK_URL_NEW_LEAD || "http://127.0.0.1:5678/webhook/new-lead";
-
-        console.log(`[Outbound API] Triggering N8N Webhook for ${phone} at ${n8nWebhookUrl}`);
-
         const res = await fetch(n8nWebhookUrl, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -26,20 +34,29 @@ export async function POST(request: NextRequest) {
                 name,
                 phone,
                 city,
+                // Gender/pronoun — both passed so n8n can format for Zara's context
                 gender,
+                pronoun: pronoun || (gender === "male" ? "Sir / Mr." : gender === "female" ? "Ma'am / Ms." : ""),
                 service,
                 company,
+                // ── Zara-critical fields ──────────────────────────────────
+                // These are injected into LiveKit room metadata so Zara can
+                // greet the client with their context instead of acting blind.
+                primary_goal: primary_goal || service || "",
+                situation: situation || "",
+                whatsapp_number: whatsapp_number || phone || "",
             }),
         });
 
         if (!res.ok) {
-            console.error("[Outbound API] N8N Webhook returned error status:", res.status);
-            return NextResponse.json({ error: "N8N Webhook failed to receive request" }, { status: 500 });
+            console.error("[Outbound API] n8n returned error:", res.status);
+            return NextResponse.json({ error: "n8n webhook trigger failed" }, { status: 502 });
         }
 
-        return NextResponse.json({ success: true });
+        const responseBody = await res.json().catch(() => ({}));
+        return NextResponse.json({ success: true, ...responseBody });
     } catch (err) {
-        console.error("[Outbound API] Internal Error proxying to N8N:", err);
-        return NextResponse.json({ error: "Failed to connect to N8N infrastructure" }, { status: 500 });
+        console.error("[Outbound API] Error proxying to n8n:", err);
+        return NextResponse.json({ error: "Failed to connect to n8n infrastructure" }, { status: 500 });
     }
 }

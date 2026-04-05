@@ -238,7 +238,7 @@
                 "name": "get_available_slots",
                 "description": "Get available meeting slots. Returns 2 formatted slot options for the client.",
                 "method": "GET",
-                "url": "https://trivern.tech/api/n8n/get-available-slots?phone={phone}&priority=auto",
+                "url": "https://trivern.tech/api/n8n/available-slots?phone={phone}&priority=auto",
                 "sendBody": false,
                 "placeholderDefinitions": {
                     "values": [
