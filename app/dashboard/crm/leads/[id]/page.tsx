@@ -1,7 +1,11 @@
 import prisma from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Phone, Mail, Building2, TrendingUp, AlertTriangle, Calendar, MessageSquare, Clock, Video, Edit3 } from "lucide-react";
+import {
+    ArrowLeft, Phone, Mail, Building2, TrendingUp, AlertTriangle,
+    Calendar, MessageSquare, Clock, Video, Mic, MessageCircle, Settings, Zap
+} from "lucide-react";
+import { CHANNEL_CONFIG, TYPE_CONFIG } from "@/lib/activity";
 
 function ScoreBadge({ score }: { score: number }) {
     if (score >= 80) return <span className="inline-flex items-center gap-1 text-sm px-3 py-1.5 rounded-full bg-red-500/15 text-red-400 font-semibold border border-red-500/20">🔥 HOT — {score}/100</span>;
@@ -11,12 +15,39 @@ function ScoreBadge({ score }: { score: number }) {
     return <span className="inline-flex items-center gap-1 text-sm px-3 py-1.5 rounded-full bg-gray-700/20 text-gray-500 font-semibold">❌ DQ — {score}/100</span>;
 }
 
+function timeAgo(date: Date): string {
+    const diff = Date.now() - new Date(date).getTime();
+    const m = Math.floor(diff / 60000);
+    if (m < 1) return "Just now";
+    if (m < 60) return `${m}m ago`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `${h}h ago`;
+    const d = Math.floor(h / 24);
+    if (d < 7) return `${d}d ago`;
+    return new Date(date).toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+}
+
+const CHANNEL_ICON: Record<string, any> = {
+    VOICE:  Mic,
+    CHAT:   MessageCircle,
+    MANUAL: Settings,
+    SYSTEM: Zap,
+};
+
+const CHANNEL_STYLE: Record<string, string> = {
+    VOICE:  "text-cyan-400 bg-cyan-500/10 border-cyan-500/30",
+    CHAT:   "text-blue-400 bg-blue-500/10 border-blue-500/30",
+    MANUAL: "text-yellow-400 bg-yellow-500/10 border-yellow-500/30",
+    SYSTEM: "text-gray-400 bg-gray-500/10 border-gray-500/30",
+};
+
 export default async function LeadDetailPage({ params }: { params: { id: string } }) {
     const client = await prisma.client.findUnique({
         where: { id: params.id },
         include: {
             meetings: { orderBy: { date: "desc" } },
             conversations: { orderBy: { lastMessageAt: "desc" }, take: 1 },
+            activities: { orderBy: { createdAt: "asc" } }, // Chronological for timeline
         },
     });
 
@@ -31,7 +62,7 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
     ];
 
     return (
-        <div className="space-y-6 max-w-4xl">
+        <div className="space-y-6 max-w-5xl">
             {/* Header */}
             <div className="flex items-center gap-4">
                 <Link href="/dashboard/crm/leads" className="text-gray-400 hover:text-white transition p-2 rounded-lg hover:bg-white/5">
@@ -45,6 +76,7 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
                             <div className="flex items-center gap-3 text-sm text-gray-400">
                                 {client.company && <span className="flex items-center gap-1"><Building2 size={14} /> {client.company}</span>}
                                 {client.industry && <span>· {client.industry}</span>}
+                                <span className="text-[10px] px-2 py-0.5 rounded bg-white/5">{client.source || "Unknown source"}</span>
                             </div>
                         </div>
                     </div>
@@ -64,7 +96,7 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
             )}
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Left Column — Info + Score */}
+                {/* Left: Info + Score */}
                 <div className="lg:col-span-2 space-y-6">
                     {/* Contact Info */}
                     <div className="bg-white/5 border border-cyan-500/10 rounded-xl p-5 space-y-3">
@@ -83,7 +115,7 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
                         )}
                     </div>
 
-                    {/* 5-Pillar Score Breakdown */}
+                    {/* 5-Pillar Score */}
                     <div className="bg-white/5 border border-cyan-500/10 rounded-xl p-5">
                         <h2 className="text-sm font-semibold text-white mb-4">Score Breakdown — 5 Pillars</h2>
                         <div className="space-y-4">
@@ -105,7 +137,7 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
                         </div>
                     </div>
 
-                    {/* Metadata */}
+                    {/* Lead Metadata */}
                     <div className="bg-white/5 border border-cyan-500/10 rounded-xl p-5">
                         <h2 className="text-sm font-semibold text-white mb-3">Lead Metadata</h2>
                         <div className="grid grid-cols-2 gap-3 text-sm">
@@ -134,9 +166,92 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
                             {client.remarks && <p className="text-sm text-gray-400 italic">{client.remarks}</p>}
                         </div>
                     )}
+
+                    {/* ── God-View Timeline ──────────────────────────────── */}
+                    <div className="bg-white/5 border border-cyan-500/10 rounded-xl p-5">
+                        <div className="flex items-center justify-between mb-5">
+                            <div>
+                                <h2 className="text-sm font-semibold text-white">Lead Timeline</h2>
+                                <p className="text-[10px] text-gray-500 mt-0.5">Full lifecycle — Voice + Chat + System events</p>
+                            </div>
+                            <span className="text-[10px] px-2 py-1 rounded bg-white/5 text-gray-500">{client.activities.length} events</span>
+                        </div>
+
+                        {client.activities.length === 0 ? (
+                            <div className="text-center py-8">
+                                <Zap size={24} className="mx-auto text-gray-600 mb-2" />
+                                <p className="text-gray-500 text-sm">No activity recorded yet</p>
+                                <p className="text-gray-600 text-xs mt-1">Events appear here as Zara interacts with this lead</p>
+                            </div>
+                        ) : (
+                            <div className="relative">
+                                {/* Vertical timeline line */}
+                                <div className="absolute left-4 top-0 bottom-0 w-px bg-cyan-500/10" />
+                                <div className="space-y-0">
+                                    {(client.activities as any[]).map((activity, i) => {
+                                        const ChannelIcon = CHANNEL_ICON[activity.channel] || Zap;
+                                        const typeConf = TYPE_CONFIG[activity.type as keyof typeof TYPE_CONFIG];
+                                        const channelStyle = CHANNEL_STYLE[activity.channel] || "text-gray-400 bg-gray-500/10 border-gray-500/30";
+                                        const isLast = i === client.activities.length - 1;
+
+                                        return (
+                                            <div key={activity.id} className="relative flex gap-4 pb-5">
+                                                {/* Dot on timeline */}
+                                                <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center shrink-0 z-10 ${channelStyle}`}>
+                                                    <ChannelIcon size={13} />
+                                                </div>
+                                                {/* Content */}
+                                                <div className={`flex-1 pt-1 ${!isLast ? "pb-2" : ""}`}>
+                                                    <div className="flex items-start justify-between gap-2">
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="flex items-center gap-2 flex-wrap">
+                                                                <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: activity.channel === "VOICE" ? "#22d3ee" : activity.channel === "CHAT" ? "#60a5fa" : "#9ca3af" }}>
+                                                                    {CHANNEL_CONFIG[activity.channel as keyof typeof CHANNEL_CONFIG]?.emoji} {activity.channel}
+                                                                </span>
+                                                                <span className="text-[10px] text-gray-600">·</span>
+                                                                <span className="text-[10px] text-gray-500">{typeConf?.icon} {typeConf?.label || activity.type}</span>
+                                                            </div>
+                                                            <p className="text-sm text-white mt-0.5 font-medium leading-snug">{activity.title}</p>
+                                                            {activity.detail && (
+                                                                <p className="text-xs text-gray-400 mt-0.5">{activity.detail}</p>
+                                                            )}
+                                                            {/* Status change */}
+                                                            {activity.fromStatus && activity.toStatus && (
+                                                                <div className="flex items-center gap-1.5 mt-1.5">
+                                                                    <span className="text-[10px] px-2 py-0.5 rounded bg-white/5 text-gray-400">{activity.fromStatus}</span>
+                                                                    <span className="text-gray-600">→</span>
+                                                                    <span className="text-[10px] px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-400 font-medium">{activity.toStatus}</span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        {/* Right: score + time */}
+                                                        <div className="text-right shrink-0">
+                                                            {activity.scoreAtEvent !== null && activity.scoreAtEvent !== undefined && (
+                                                                <span className={`text-xs font-bold block ${activity.scoreAtEvent >= 80 ? "text-red-400" : activity.scoreAtEvent >= 60 ? "text-yellow-400" : "text-gray-500"}`}>
+                                                                    {activity.scoreAtEvent}/100
+                                                                </span>
+                                                            )}
+                                                            <span className="text-[10px] text-gray-600 block mt-0.5">{timeAgo(activity.createdAt)}</span>
+                                                            <span className="text-[9px] text-gray-700">
+                                                                {new Date(activity.createdAt).toLocaleString("en-IN", {
+                                                                    day: "numeric", month: "short",
+                                                                    hour: "2-digit", minute: "2-digit",
+                                                                    timeZone: "Asia/Kolkata",
+                                                                })}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 </div>
 
-                {/* Right Column — Meetings + Conversations */}
+                {/* Right column: Meetings + Last Conversation */}
                 <div className="space-y-6">
                     {/* Meetings */}
                     <div className="bg-white/5 border border-cyan-500/10 rounded-xl p-5">
@@ -182,15 +297,6 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
                             })()}
                         </div>
                     )}
-
-                    {/* Timeline */}
-                    <div className="bg-white/5 border border-cyan-500/10 rounded-xl p-5">
-                        <h2 className="text-sm font-semibold text-white mb-3">Timeline</h2>
-                        <div className="space-y-2 text-xs text-gray-400">
-                            <p>Created: {new Date(client.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</p>
-                            <p>Last updated: {new Date(client.updatedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</p>
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>

@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { scoreLead } from "@/lib/lead-scoring";
 import { getLeadTier } from "@/lib/types";
+import { logActivity } from "@/lib/activity";
+
 
 // POST /api/n8n/lead-capture
 // Called by Zara (n8n AI Agent) after collecting lead info during WhatsApp conversation
@@ -43,6 +45,7 @@ export async function POST(req: Request) {
 
         if (client) {
             // Update existing lead with new info
+            const prevStatus = client.status;
             client = await prisma.client.update({
                 where: { id: client.id },
                 data: {
@@ -58,6 +61,14 @@ export async function POST(req: Request) {
                     status: client.status === "NEW" ? "CONTACTED" : client.status,
                     ...scores,
                 },
+            });
+            // Log activity — returning lead re-engaged via Chat
+            await logActivity({
+                clientId: client.id, type: "STATUS_CHANGE", channel: "CHAT",
+                title: "Lead re-engaged via WhatsApp",
+                detail: `Context updated · Score: ${scores.score}`,
+                fromStatus: prevStatus, toStatus: client.status,
+                scoreAtEvent: scores.score,
             });
         } else {
             // Create new lead
@@ -78,6 +89,14 @@ export async function POST(req: Request) {
                     ...scores,
                 },
             });
+            // Log activity — new lead captured via Chat
+            await logActivity({
+                clientId: client.id, type: "LEAD_CAPTURED", channel: "CHAT",
+                title: "New lead captured via WhatsApp",
+                detail: `Service: ${service || "Unknown"} · Score: ${scores.score}`,
+                fromStatus: "NEW", toStatus: "CONTACTED",
+                scoreAtEvent: scores.score,
+            });
         }
 
         const tier = getLeadTier(client.scoreOverride ?? client.score);
@@ -95,6 +114,12 @@ export async function POST(req: Request) {
                     escalated: true,
                     escalationReason: `Auto-escalated: tier=${tier}, urgency=${urgency || "N/A"}`,
                 },
+            });
+            await logActivity({
+                clientId: client.id, type: "ESCALATED", channel: "CHAT",
+                title: "Lead auto-escalated to Founder",
+                detail: `Tier: ${tier} · Urgency: ${urgency || "N/A"}`,
+                scoreAtEvent: client.scoreOverride ?? client.score,
             });
         }
 

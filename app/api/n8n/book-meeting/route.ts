@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getCalendarClient, CALENDAR_ID } from "@/lib/google-auth";
+import { logActivity, type ActivityChannel } from "@/lib/activity";
 
 // POST /api/n8n/book-meeting
 // Called by Zara after client selects a slot
 export async function POST(req: Request) {
     try {
-        const { phone, slotStart, duration = 20, notes } = await req.json();
+        const { phone, slotStart, duration = 20, notes, channel = "CHAT" } = await req.json();
 
         if (!phone || !slotStart) {
             return NextResponse.json({ error: "phone and slotStart required" }, { status: 400 });
@@ -87,9 +88,23 @@ export async function POST(req: Request) {
         });
 
         // Update client status
+        const prevStatus = client.status;
         await prisma.client.update({
             where: { id: client.id },
             data: { status: "BOOKED" },
+        });
+
+        // Log activity — meeting booked
+        await logActivity({
+            clientId: client.id,
+            type: "MEETING_BOOKED",
+            channel: (channel as ActivityChannel) || "CHAT",
+            title: `Meeting booked via ${channel === "VOICE" ? "Voice (Zara)" : "WhatsApp (Zara)"}`,
+            detail: `${new Date(meetingDate).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })} · ${duration}min · ${meetLink || "No meet link"}`,
+            meetingId: meeting.id,
+            fromStatus: prevStatus,
+            toStatus: "BOOKED",
+            scoreAtEvent: client.scoreOverride ?? client.score,
         });
 
         // Trigger confirmation notification

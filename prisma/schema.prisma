@@ -29,13 +29,13 @@ model Client {
   name         String
   company      String?
   email        String?
-  phone        String
+  phone        String   @unique  // Golden Record — one phone = one lead identity
   service      String?
   context      String?
 
   // Source
-  source String? // "WhatsApp" | "Website" | "Referral"
-  status String  @default("NEW") // NEW | CONTACTED | BOOKED | CLOSED | LOST
+  source String? // "WhatsApp" | "Website" | "Voice" | "Referral"
+  status String  @default("NEW") // NEW | CONTACTED | QUALIFIED | BOOKED | COMPLETED | LOST
 
   // Lead Scoring — 5 Pillars (100 total)
   score           Int  @default(0) // Composite score
@@ -65,10 +65,52 @@ model Client {
   meetings      Meeting[]
   conversations Conversation[]
   voiceCalls    VoiceCall[]
+  activities    LeadActivity[]  // ← Full audit trail
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
+// ─── Lead Activity Timeline ──────────────────────────
+// Every significant event in a lead's lifecycle.
+// This is the "God View" data source — merges Chat, Voice, System events.
+// Designed for future RAG/Postgres migration: all fields are plain scalars.
+
+model LeadActivity {
+  id       String @id @default(cuid())
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  // Event classification
+  type    String // STATUS_CHANGE | CALL_STARTED | CALL_ENDED | MEETING_BOOKED
+                 // MEETING_COMPLETED | MESSAGE_RECEIVED | LEAD_SCORED | ESCALATED | NOTE_ADDED
+  channel String // VOICE | CHAT | MANUAL | SYSTEM
+
+  // Human-readable content (used in timeline UI)
+  title  String  // "Meeting booked via Voice"
+  detail String? // "Duration: 4m 32s · Outcome: booked · Score: 75 → 82"
+
+  // Optional links to related records (nullable for clean schema)
+  meetingId      String?
+  voiceCallId    String?
+  conversationId String?
+
+  // Status change snapshot
+  fromStatus String? // Previous client.status
+  toStatus   String? // New client.status
+
+  // Score snapshot at time of event
+  scoreAtEvent Int?
+
+  // Who/what triggered it
+  triggeredBy String @default("SYSTEM") // "SYSTEM" | "ADMIN" | user name
+
+  createdAt DateTime @default(now())
+
+  @@index([clientId])
+  @@index([createdAt])
+}
+
 
 // ─── Meetings ───────────────────────────────────────
 
