@@ -272,12 +272,12 @@ async def entrypoint(ctx: JobContext):
 
     # INJECT REAL DATA TO PREVENT HALLUCINATIONS
     system_prompt_base = system_prompt_base.replace("{caller_name}", caller_name)
-    system_prompt_base = system_prompt_base.replace("{business_name}", business_name if business_name else "none")
-    system_prompt_base = system_prompt_base.replace("{city}", city_name if city_name else "none")
+    system_prompt_base = system_prompt_base.replace("{business_name}", business_name if business_name else "")
+    system_prompt_base = system_prompt_base.replace("{city}", city_name if city_name else "")
     system_prompt_base = system_prompt_base.replace("{pronoun}", pronoun)
-    system_prompt_base = system_prompt_base.replace("{primary_goal}", primary_goal if primary_goal else "none")
-    system_prompt_base = system_prompt_base.replace("{situation}", situation if situation else "none")
-    system_prompt_base = system_prompt_base.replace("{whatsapp_number}", whatsapp_number if whatsapp_number else "none")
+    system_prompt_base = system_prompt_base.replace("{primary_goal}", primary_goal if primary_goal else "")
+    system_prompt_base = system_prompt_base.replace("{situation}", situation if situation else "")
+    system_prompt_base = system_prompt_base.replace("{whatsapp_number}", whatsapp_number if whatsapp_number else "")
     
     # INJECT TIME AWARENESS
     ist_timezone = pytz.timezone('Asia/Kolkata')
@@ -328,7 +328,7 @@ async def entrypoint(ctx: JobContext):
         ),
         tts=tts_instance,
         turn_detection="stt",
-        min_endpointing_delay=0.07,
+        min_endpointing_delay=0.8,
     )
 
     await session.start(room=ctx.room, agent=agent)
@@ -372,7 +372,7 @@ async def entrypoint(ctx: JobContext):
 
     ctx.add_shutdown_callback(_on_disconnect)
 
-    if primary_goal != "none" and primary_goal != "":
+    if primary_goal and primary_goal != "":
         greeting_instruction = (
             f"Execute STEP 1: GREETING & REQUIREMENTS strictly per the system prompt. "
             f"Acknowledge the caller's primary goal ({primary_goal}) naturally. "
