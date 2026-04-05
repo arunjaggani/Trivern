@@ -80,16 +80,22 @@ export default function ConversationsPage() {
     }
 
     return (
-        <div className="wa-container">
+        <div className="wa-container" style={{ margin: "-1.5rem -1.5rem 0" }}>
             <style>{`
                 .wa-container {
                     display: flex;
-                    height: calc(100vh - 6rem);
-                    border-radius: 10px;
+                    /* Fill the full viewport height minus just the topbar (64px) */
+                    height: calc(100vh - 4rem);
+                    border-radius: 0;
                     overflow: hidden;
-                    border: 1px solid var(--dash-border, #E8EDF2);
-                    box-shadow: 0 1px 4px rgba(15,23,42,0.06), 0 2px 12px rgba(15,23,42,0.04);
+                    border: none;
+                    border-top: 1px solid var(--dash-border, #E8EDF2);
+                    box-shadow: none;
                     background: var(--wa-sidebar-bg);
+                    /* Critical: prevent the container itself from overflowing */
+                    width: 100%;
+                    max-width: 100%;
+                    box-sizing: border-box;
                 }
 
                 /* Light mode (default for dashboard) */
@@ -268,6 +274,10 @@ export default function ConversationsPage() {
                 /* Chat panel */
                 .wa-chat {
                     flex: 1;
+                    /* min-width:0 is critical — without it a flex child can grow
+                       wider than its parent, pushing content off-screen */
+                    min-width: 0;
+                    overflow: hidden;
                     display: flex;
                     flex-direction: column;
                     background: var(--wa-chat-bg);
@@ -287,11 +297,15 @@ export default function ConversationsPage() {
                 .wa-chat-header-sub { font-size: 11px; color: var(--wa-header-sub); }
 
                 .wa-messages {
-                    flex: 1; overflow-y: auto;
-                    padding: 12px 48px;
+                    flex: 1;
+                    overflow-y: auto;
+                    overflow-x: hidden;
+                    padding: 12px 16px;
                     display: flex;
                     flex-direction: column;
                     gap: 3px;
+                    box-sizing: border-box;
+                    width: 100%;
                 }
 
                 .wa-date-divider {
@@ -317,8 +331,12 @@ export default function ConversationsPage() {
                 .wa-msg-row.recv { justify-content: flex-start; }
 
                 .wa-bubble {
-                    max-width: 65%;
-                    padding: 6px 8px 4px;
+                    /* max-width relative to the chat panel width */
+                    max-width: min(65%, 480px);
+                    min-width: 0;
+                    word-break: break-word;
+                    overflow-wrap: break-word;
+                    padding: 6px 10px 4px;
                     border-radius: 8px;
                     font-size: 13px;
                     line-height: 1.4;

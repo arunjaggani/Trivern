@@ -7,6 +7,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import ThemeProvider from "@/components/ThemeProvider";
 import ThemeToggle from "@/components/ThemeToggle";
+import GlobalSearch from "@/components/GlobalSearch";
 import {
     LayoutDashboard,
     Globe,
@@ -229,13 +230,18 @@ function DashboardTopbar({ collapsed, setMobileOpen }: { collapsed: boolean; set
             className={`fixed top-0 right-0 z-30 h-16 bg-[var(--dash-topbar-bg)] backdrop-blur-md flex items-center justify-between px-6 transition-all duration-300 ${collapsed ? "left-16" : "left-60"}`}
             style={{ borderBottom: "1px solid var(--dash-border)" }}
         >
-            <div className="flex items-center gap-4">
+            {/* Left: mobile menu + search bar */}
+            <div className="flex items-center gap-3 flex-1 min-w-0">
                 <button onClick={() => setMobileOpen(true)} className="lg:hidden text-[hsl(var(--dash-text-muted))] hover:text-[hsl(var(--dash-text))]"><Menu size={20} /></button>
-                <h1 className="text-sm font-medium text-[hsl(var(--dash-text-muted))]">Welcome back</h1>
+                <div className="hidden sm:block w-full max-w-xs">
+                    <GlobalSearch />
+                </div>
             </div>
-            <div className="flex items-center gap-3">
+
+            {/* Right: theme toggle + user info */}
+            <div className="flex items-center gap-3 shrink-0">
                 <ThemeToggle />
-                <div className="text-right">
+                <div className="text-right hidden sm:block">
                     <p className="text-sm font-semibold text-[hsl(var(--dash-text))]">{session?.user?.name || "User"}</p>
                     <p className="text-[11px] uppercase tracking-wider font-medium" style={{ color: "#0D9488" }}>{(session?.user as any)?.role || "ADMIN"}</p>
                 </div>
