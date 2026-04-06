@@ -203,7 +203,8 @@ async def entrypoint(ctx: JobContext):
     # ── 1. Connect FIRST — needed before we can read participant.identity ─────
     await ctx.connect(auto_subscribe=AutoSubscribe.AUDIO_ONLY)
     try:
-        participant = await ctx.wait_for_participant(timeout=30.0)
+        # Wrap in asyncio.wait_for since wait_for_participant doesn't take a native timeout argument
+        participant = await asyncio.wait_for(ctx.wait_for_participant(), timeout=30.0)
     except Exception as e:
         logger.error(f"[PARTICIPANT ERROR] Room disconnected or timed out before participant joined: {e}")
         return  # Gracefully exit — no session to start

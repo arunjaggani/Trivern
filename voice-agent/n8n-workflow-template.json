@@ -33,7 +33,7 @@
         {
             "parameters": {
                 "method": "POST",
-                "url": "https://trivern.tech/api/n8n/lead-capture",
+                "url": "https://trivern.tech/api/n8n/save-lead",
                 "sendBody": true,
                 "bodyParameters": {
                     "parameters": [
@@ -210,6 +210,10 @@
                         {
                             "name": "notes",
                             "value": "={{ $json.body.notes || $json.notes || '' }}"
+                        },
+                        {
+                            "name": "channel",
+                            "value": "VOICE"
                         }
                     ]
                 },
@@ -257,7 +261,7 @@
         {
             "parameters": {
                 "method": "POST",
-                "url": "https://trivern.tech/api/n8n/lead-capture",
+                "url": "https://trivern.tech/api/n8n/save-lead",
                 "sendBody": true,
                 "bodyParameters": {
                     "parameters": [
@@ -288,6 +292,18 @@
                         {
                             "name": "source",
                             "value": "Voice"
+                        },
+                        {
+                            "name": "industry",
+                            "value": "={{ $json.industry || '' }}"
+                        },
+                        {
+                            "name": "businessType",
+                            "value": "={{ $json.businessType || '' }}"
+                        },
+                        {
+                            "name": "budgetHint",
+                            "value": "={{ $json.budgetHint || '' }}"
                         }
                     ]
                 },
@@ -367,6 +383,10 @@
                         {
                             "name": "source",
                             "value": "voice"
+                        },
+                        {
+                            "name": "channel",
+                            "value": "VOICE"
                         }
                     ]
                 },
