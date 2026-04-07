@@ -374,7 +374,7 @@ async def entrypoint(ctx: JobContext):
         ),
         tts=tts_instance,
         turn_detection="stt",
-        min_endpointing_delay=0.8,
+        min_endpointing_delay=1.5,
     )
 
     await session.start(room=ctx.room, agent=agent)

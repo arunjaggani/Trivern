@@ -268,6 +268,7 @@ class SarvamStream(tts.ChunkedStream):
                 if result:
                     output_emitter.push(result)
                     pushed += 1
+                    await asyncio.sleep(0.08)  # Prevent LiveKit VAD queue overflow
                 else:
                     logger.warning(f"Chunk {i} returned no audio, skipping")
             except Exception as e:
