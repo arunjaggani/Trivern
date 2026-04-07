@@ -324,7 +324,7 @@ async def entrypoint(ctx: JobContext):
             async with http.post(
                 f"{trivern_api_base}/api/voice/log",
                 json={
-                    "callerNumber": participant.identity,
+                    "callerNumber": f"+91{whatsapp_number}" if len(whatsapp_number) == 10 else whatsapp_number, # Standardize numeric payload
                     "roomName": ctx.room.name,
                     "language": language_code,
                     "callType": "outbound",
@@ -483,8 +483,7 @@ async def entrypoint(ctx: JobContext):
         )
 
     try:
-        logger.info("Participant joined. Waiting 1.5s for them to bring the phone to their ear...")
-        await asyncio.sleep(1.5)
+        logger.info("Participant joined. Triggering immediate greeting...")
         await session.generate_reply(instructions=greeting_instruction)
         logger.info("Greeting sent successfully.")
     except Exception as e:

@@ -165,10 +165,9 @@ class CustomSarvamTTS(tts.TTS):
         if not text or not text.strip():
             return None
 
-        # Apply Syllable Padding: Sarvam TTS sometimes cuts off the last syllable if the chunk lacks a hard stop.
+        # Apply strict silence padding to prevent trailing syllable dropping
         padded_text = text[:2500].strip()
-        if not padded_text.endswith((".", "!", "?")):
-            padded_text += "."
+        padded_text += " . . "
 
         payload = {
             "inputs": [padded_text],
