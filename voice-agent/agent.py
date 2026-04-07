@@ -247,9 +247,11 @@ async def entrypoint(ctx: JobContext):
             pronoun = str(meta.get("pronoun") or "").strip()
             primary_goal = str(meta.get("primary_goal") or "").strip()
             situation = str(meta.get("situation") or "").strip()
-            whatsapp_number = str(meta.get("whatsapp_number") or "").strip()
             
-            logger.info(f"[METADATA EXTRACT] Extracted Name: '{caller_name}', WhatsApp: '{whatsapp_number}', Goal: '{primary_goal}'")
+            # Universal phone extraction priority: User's explicit WhatsApp -> Raw Phone metadata -> LiveKit SIP Caller ID
+            whatsapp_number = str(meta.get("whatsapp_number") or meta.get("phone") or "").strip()
+            
+            logger.info(f"[METADATA EXTRACT] Extracted Name: '{caller_name}', Goal: '{primary_goal}'")
             
         except (json.JSONDecodeError, AttributeError) as e:
             logger.error(f"[METADATA ERROR] Failed to parse room metadata: {e}")
@@ -260,12 +262,22 @@ async def entrypoint(ctx: JobContext):
     if not language_code:
         language_code = detect_language_from_city(city, default_lang="")
 
-    # ── 4. Phone-based routing (ultimate failsafe) ─────────────────────────────
+    # ── 4. Phone-based routing + Phone Extraction (Ultimate Failsafe) ─────────
+    # If whatsapp_number is completely empty, grab the SIP caller ID.
+    phone_fallback = participant.identity.replace("+91", "").replace(" ", "")
+    if getattr(participant, "kind", None) == "sip" or "outbound" in participant.identity:
+        # outbound-917794905052-123 fallback
+        parts = phone_fallback.split("-")
+        if len(parts) >= 2 and parts[1].isdigit():
+             phone_fallback = parts[1]
+             
+    if not whatsapp_number:
+        whatsapp_number = phone_fallback
+
     if not language_code:
-        phone = participant.identity.replace("+91", "").replace(" ", "")
-        if phone.startswith(("40", "891", "866", "863", "878", "884")):
-            language_code = "te-IN"
-        else:
+        if phone_fallback.startswith(("40", "891", "866", "863", "878", "884", "99", "98", "97", "96", "95", "94", "93", "91", "89", "88", "87", "86", "85", "84", "83", "82", "81", "80", "79", "78", "77", "76", "75", "74", "73", "72", "70", "63")):
+            # default to en-IN. It handles fallback locally well, TE is only specifically if we're sure.
+            # Actually, using the simple previous logic if no city detection:
             language_code = "en-IN"
 
     logger.info(f"Routed Call: {caller_name} from {city} -> Language: {language_code}")

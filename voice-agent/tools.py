@@ -131,7 +131,7 @@ async def save_lead(
     business_type: Annotated[str, "Type of business: clinic, coach, consultant, restaurant, real estate, etc."],
     decision_role: Annotated[str, "Their role in the company: founder, owner, employee, or assistant"],
 ) -> str:
-    result = await _post("/api/n8n/lead-capture", {
+    result = await _post("/api/n8n/save-lead", {
         "name": name,
         "phone": phone,
         "company": company,
@@ -141,6 +141,7 @@ async def save_lead(
         "businessType": business_type,
         "decisionRole": decision_role,
         "source": "Voice",
+        "channel": "VOICE",
     })
     if result.get("success"):
         tier = result.get("tier", "")
