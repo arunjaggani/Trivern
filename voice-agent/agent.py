@@ -483,6 +483,8 @@ async def entrypoint(ctx: JobContext):
         )
 
     try:
+        logger.info("Participant joined. Waiting 1.5s for them to bring the phone to their ear...")
+        await asyncio.sleep(1.5)
         await session.generate_reply(instructions=greeting_instruction)
         logger.info("Greeting sent successfully.")
     except Exception as e:
